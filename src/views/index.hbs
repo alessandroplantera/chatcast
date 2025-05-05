@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Sessions</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Telegram Recording Sessions</h1>
+  </header>
+  
+  <main>
+    <div class="session-container">
+      {{#if sessions.length}}
+        {{#each sessions}}
+          <div class="session-card">
+            <div class="session-header">
+              <h2 class="session-title">{{session_id}}</h2>
+              <span class="session-date">{{formatDate start_date}}</span>
+            </div>
+            <div class="session-users">
+              <h3>Participants:</h3>
+              <ul>
+                {{#each participants}}
+                  <li>{{this}}</li>
+                {{/each}}
+              </ul>
+            </div>
+            <a href="/messages?session_id={{session_id}}" class="view-button">View Messages</a>
+          </div>
+        {{/each}}
+      {{else}}
+        <div class="empty-state">
+          <p>No recording sessions available.</p>
+        </div>
+      {{/if}}
+    </div>
+  </main>
+  
+  <script>
+    // Refresh the page every minute to show new sessions
+    setTimeout(() => {
+      window.location.reload();
+    }, 60000);
+  </script>
+</body>
+</html>

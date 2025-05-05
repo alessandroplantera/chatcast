@@ -1,0 +1,562 @@
+
+const fs = require("fs");
+const path = require("path");
+const { Telegraf } = require("telegraf");
+const { message } = require("telegraf/filters");
+const fastify = require("fastify")({ logger: false });
+// Import the database functions
+const db = require("./src/messagesDb"); // Adjust path as necessary
+// Telegram Bot Setup
+let recordingHasStarted = false;
+const bot = new Telegraf(process.env.BOT_TOKEN || "YOUR_BOT_TOKEN");
+// Bot commands
+bot.start((ctx) =>
+  ctx.reply("Yo! I'm ready whenever you are. Send me /record to start recording and /stop to stop.")
+);
+bot.command("record", (ctx) => {
+  recordingHasStarted = true;
+  ctx.reply("Recording started!");
+});
+bot.command("stop", (ctx) => {
+  recordingHasStarted = false;
+  ctx.reply("Recording stopped.");
+});
+// Handle text messages
+bot.on(message("text"), async (ctx) => {
+  if (recordingHasStarted) {
+    const msgToSave = {
+      chat_id: ctx.chat.id.toString(),
+      date: new Date(ctx.message.date * 1000).toISOString(),
+      username: ctx.from.username || "Anonymous",
+      message: ctx.message.text,
+    };
+    // Save the message to the database
+    await db.saveMessage(msgToSave);
+    console.log("Message saved:", msgToSave);
+    ctx.reply(Message recorded: ${msgToSave.message});
+  } else {
+    ctx.reply("Recording is not started. Use /record to start.");
+  }
+});
+bot.launch();
+// Graceful stop
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
+// Fastify server setup
+fastify.register(require("@fastify/static"), {
+  root: path.join(__dirname, "public"),
+  prefix: "/",
+});
+fastify.register(require("@fastify/formbody"));
+fastify.register(require("@fastify/view"), {
+  engine: { handlebars: require("handlebars") },
+});
+fastify.get("/", async (request, reply) => {
+  return reply.sendFile("index.html"); // Serve the index.html file
+});
+// Get unique chat IDs
+fastify.get("/chat_ids", async (request, reply) => {
+  try {
+    const chatIds = await db.getUniqueChatIds();
+    return reply.send(chatIds); // Return the list of chat IDs as JSON
+  } catch (err) {
+    console.error(err);
+    return reply.status(500).send("Error retrieving chat IDs.");
+  }
+});
+fastify.get("/messages", async (request, reply) => {
+  try {
+    const chatId = request.query.chat_id || "all";
+    const messages = await db.getMessages(chatId);
+    return reply.send(messages); // Return messages as JSON
+  } catch (err) {
+    console.error(err);
+    return reply.status(500).send("Error retrieving messages.");
+  }
+});
+// Fastify server start
+fastify.listen(
+  { port: process.env.PORT || 3000, host: "0.0.0.0" },
+  (err, address) => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    }
+    console.log(Server listening at ${address});
+  }
+);
+
+This code creates a Telegram bot that records messages and a web server to display those messages. Here's what it does:
+
+Sets up a Telegram bot that can start/stop recording messages with commands
+Saves recorded messages to a database
+Creates a web server with endpoints to:
+Serve a frontend interface
+Retrieve unique chat IDs
+Get messages filtered by chat ID
+To make this work, you'll need:
+
+A Telegram bot token (set as environment variable or hardcoded)
+The database module referenced at ./src/messagesDb
+A public folder with an index.html file
+Is there anything specific about this code you'd like me to explain or help you with? For example, I could help create the database module or the frontend interface that seems to be missing.
+
+
+
+
+I'd like to customize the telegram bot response making sure that every time a new message is recorded to the DB the bot reply to the recorded messages with a red dot emojii
+
+I can help you modify your code to make the bot reply with a red dot emoji when a message is recorded. Here's how to update the part that handles text messages:
+
+javascript
+// Handle text messages
+bot.on(message("text"), async (ctx) => {
+  if (recordingHasStarted) {
+    const msgToSave = {
+      chat_id: ctx.chat.id.toString(),
+      date: new Date(ctx.message.date * 1000).toISOString(),
+      username: ctx.from.username || "Anonymous",
+      message: ctx.message.text,
+    };
+    // Save the message to the database
+    await db.saveMessage(msgToSave);
+    console.log("Message saved:", msgToSave);
+    // Reply with red dot emoji instead of the text message
+    ctx.reply("🔴");
+  } else {
+    ctx.reply("Recording is not started. Use /record to start.");
+  }
+});
+The key change is replacing ctx.reply(Message recorded: ${msgToSave.message}) with ctx.reply("🔴"). This will make the bot reply with just the red dot emoji every time a message is successfully recorded to the database.
+
+
+
+
+
+would it be possible to reply with a reacrtion to the recorded message instead of a different message with an emojii?
+
+Yes, you can use Telegram's reaction feature instead of sending a separate message. Telegram bots can add reactions to messages using the reactionMessage method. Here's how to modify your code:
+
+javascript
+// Handle text messages
+bot.on(message("text"), async (ctx) => {
+  if (recordingHasStarted) {
+    const msgToSave = {
+      chat_id: ctx.chat.id.toString(),
+      date: new Date(ctx.message.date * 1000).toISOString(),
+      username: ctx.from.username || "Anonymous",
+      message: ctx.message.text,
+    };
+    // Save the message to the database
+    await db.saveMessage(msgToSave);
+    console.log("Message saved:", msgToSave);
+    
+    // React with red dot emoji to the original message
+    try {
+      await ctx.telegram.setMessageReaction(
+        ctx.chat.id,
+        ctx.message.message_id,
+        [{ type: "emoji", emoji: "🔴" }]
+      );
+    } catch (error) {
+      console.error("Error setting reaction:", error);
+    }
+  } else {
+    ctx.reply("Recording is not started. Use /record to start.");
+  }
+});
+This code will add a red dot emoji reaction to the original message instead of sending a separate message. The setMessageReaction method takes the chat ID, message ID, and an array of reaction objects containing the emoji to use.
+
+
+
+
+
+now I'd like to customize the telegram bot presenting a custom keyboard at the bottom of the screen, the custom keybaord should present a big button with a CTA to start recording if we are not recording and a stop button when recording.
+
+Let's modify your Telegram bot to include a custom keyboard with buttons that change based on the recording state. This will provide a better user experience by showing a prominent "Start Recording" button when not recording and a "Stop Recording" button when recording is active.
+
+Here's how to implement this:
+
+javascript
+const { Telegraf, Markup } = require("telegraf");
+
+// Create the keyboard layouts
+const startRecordingKeyboard = Markup.keyboard([
+  [Markup.button.text('🎙️ START RECORDING')],
+]).resize();
+
+const stopRecordingKeyboard = Markup.keyboard([
+  [Markup.button.text('⏹️ STOP RECORDING')],
+]).resize();
+
+// Bot commands
+bot.start((ctx) => {
+  ctx.reply(
+    "Yo! I'm ready whenever you are. Press the button to start recording.", 
+    startRecordingKeyboard
+  );
+});
+
+// Handle the button presses
+bot.hears('🎙️ START RECORDING', (ctx) => {
+  recordingHasStarted = true;
+  ctx.reply("Recording started! All your messages will be saved.", stopRecordingKeyboard);
+});
+
+bot.hears('⏹️ STOP RECORDING', (ctx) => {
+  recordingHasStarted = false;
+  ctx.reply("Recording stopped. Press the button to start again.", startRecordingKeyboard);
+});
+
+// Keep the /record and /stop commands as alternative ways to control recording
+bot.command("record", (ctx) => {
+  recordingHasStarted = true;
+  ctx.reply("Recording started!", stopRecordingKeyboard);
+});
+
+bot.command("stop", (ctx) => {
+  recordingHasStarted = false;
+  ctx.reply("Recording stopped.", startRecordingKeyboard);
+});
+
+// The rest of your message handling code remains the same
+This code:
+
+Imports Markup from telegraf to create custom keyboards
+Creates two keyboard layouts - one for starting recording and one for stopping
+Shows the appropriate keyboard when using the /start command
+Handles button presses with bot.hears() which listens for specific text
+Updates the keyboard shown whenever the recording state changes
+Keeps the text commands for compatibility
+The emojis (🎙️ for start and ⏹️ for stop) make the buttons more visually distinct and easier to understand at a glance.
+
+
+
+
+
+could you please incorporate the code into the one I shared earlier?
+
+
+Telegram Bot with Custom Keyboard and Reactions
+Codice 
+I've integrated the custom keyboard and reaction functionality into your original code. The main changes include:
+
+Added the Markup import from telegraf to create custom keyboards
+Created two keyboard layouts - one with a START RECORDING button and one with a STOP RECORDING button
+Updated the bot commands to show the appropriate keyboard
+Added handlers for the button presses using bot.hears()
+Modified the text message handler to:
+Ignore messages that are actually button presses
+React with a red dot emoji instead of sending a reply message
+Show the start recording keyboard when needed
+The bot will now show a prominent recording button at the bottom of the chat, and it will react with a red dot to messages that are successfully recorded to the database.
+
+
+
+
+Perfect thanks, now every time the button start recording is pressed we should create a new chat ID in the database so that we can split conversations in a more granular way
+
+I'll modify the code to create a new unique identifier each time recording starts. This will help organize conversations into discrete sessions. Here's how we can implement it:
+
+
+Telegram Bot with Custom Keyboard, Reactions, and Session IDs
+Codice 
+Key changes I've made:
+
+Added a currentSessionId variable to track the active session
+Created a generateSessionId() function that creates unique IDs using timestamp and random number
+Updated the recording start handlers to generate a new session ID each time
+Modified the message object to include the session_id field
+Added a new /sessions endpoint to get all unique session IDs
+Enhanced the /messages endpoint to filter by session ID when provided
+Added user feedback displaying the session ID when starting/stopping recording
+Note: You'll need to update your database module with the following new functions:
+
+getUniqueSessions() - To retrieve all unique session IDs
+getMessagesBySession(sessionId) - To get messages filtered by session ID
+Update saveMessage() to handle the new session_id field
+This approach allows you to granularly organize conversations by session while maintaining the original chat_id functionality for backward compatibility.
+
+
+
+
+"🔴
+replace with eye icons
+
+I'll replace the red dot (🔴) with eye icons. Here's the updated code:
+
+
+Telegram Bot with Custom Keyboard, Eye Icon Reactions, and Session IDs
+Codice 
+I've replaced the red dot emoji (🔴) with an eye emoji (👁️) in the reaction code. The change is in this section:
+
+javascript
+// React with eye emoji to the original message
+try {
+  await ctx.telegram.setMessageReaction(
+    ctx.chat.id,
+    ctx.message.message_id,
+    [{ type: "emoji", emoji: "👁️" }]
+  );
+} catch (error) {
+  console.error("Error setting reaction:", error);
+}
+This will make the bot add an eye reaction to each recorded message instead of the red dot.
+
+
+
+
+
+please add also a pause/resume keyboard button which pauses the recording of messages but doesn't create a new session when resumed
+
+Here's the updated code with pause/resume functionality that maintains the same session:
+
+
+Telegram Bot with Pause/Resume Feature
+Codice 
+Key changes I've made:
+
+Added a new isPaused state variable to track paused recordings
+Created three different keyboard layouts:
+Start Recording keyboard (when not recording)
+Active Recording keyboard (with Pause and Stop buttons)
+Paused Recording keyboard (with Resume and Stop buttons)
+Added handlers for:
+Pause button (⏸️ PAUSE RECORDING)
+Resume button (▶️ RESUME RECORDING)
+Command alternatives (/pause and /resume)
+Updated the message handling logic to:
+Check if recording is paused before saving messages
+Display appropriate feedback when users send messages while paused
+Ignore all keyboard button messages
+This implementation allows users to:
+
+Start a new recording session
+Temporarily pause recording without ending the session
+Resume recording into the same session
+End the recording session completely
+The pause/resume feature maintains the same currentSessionId throughout the pause/resume cycle, only generating new session IDs when explicitly starting a new recording.
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages</title>
+</head>
+<body>
+  <h1>Messages</h1>
+  <div id="message-container">
+    <!-- Messages will be inserted here -->
+  </div>
+  <script>
+    // Function to fetch messages from the server
+    async function fetchMessages() {
+      try {
+        const response = await fetch('/messages');
+        if (!response.ok) {
+          throw new Error('Failed to fetch messages');
+        }
+        const messages = await response.json();
+        const messageContainer = document.getElementById('message-container');
+        messageContainer.innerHTML = ''; // Clear the current messages
+        messages.forEach(message => {
+          const messageElement = document.createElement('div');
+          messageElement.innerHTML = 
+            <strong>${message.username}</strong> (${message.date}): ${message.message}
+          ;
+          messageContainer.appendChild(messageElement);
+        });
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    }
+    // Poll every 5 seconds
+    setInterval(fetchMessages, 5000);
+    // Initial call to fetch messages
+    fetchMessages();
+  </script>
+</body>
+</html>
+
+I'll create a better index.html file for your message display dashboard with improved UI and functionality, including session filtering:
+
+
+Enhanced Message Dashboard
+Contenuto interattivo 
+I've created an enhanced dashboard for your Telegram message browser with the following features:
+
+Modern UI Design:
+Clean, responsive layout with proper spacing and typography
+Card-based message display with visual hierarchy
+Color-coded messages for better readability
+Session Filtering:
+Dropdown to select specific sessions or view all messages
+Automatically populates with available sessions from your API
+Smart Refresh Controls:
+Auto-refresh toggle with configurable intervals (5s, 10s, 30s, 1min)
+Manual refresh button
+Last refresh timestamp indicator
+Improved Message Display:
+Messages grouped by session when viewing all
+Properly formatted timestamps
+Username highlighting
+Word wrapping for long messages
+Status Indicators:
+Loading state
+Empty state when no messages are found
+Error handling with user-friendly messages
+The dashboard will work with your existing API endpoints and automatically adapt to the session IDs you've implemented in the bot. This provides a much better user experience for monitoring and browsing the recorded messages.
+
+
+
+
+we need to simplify a little bit... please split css from HTLM I'll have them into 2 different files. Secondly the index.hbs should only list all sessions available, displayed as cards, each card should show the date of the rcording, the session title, and the users who took part to the session.
+
+I'll create two separate files - an index.hbs for the session listing and a matching CSS file. The index.hbs will display session cards with the requested information.
+
+
+index.hbs - Session Listing
+Codice 
+
+styles.css - Styling for Session Listing
+Codice 
+I've created two separate files as requested:
+
+index.hbs - A Handlebars template that displays sessions as cards with:
+Session ID/title
+Formatted date of the recording
+List of participants (usernames)
+
+
+
+1 messaggio rimanente fino alle 03:00
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f7f7f7;
+  padding: 20px;
+}
+
+header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+h1 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+/* Session Container */
+.session-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Session Cards */
+.session-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.session-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.session-header {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.session-title {
+  font-size: 1.2rem;
+  color: #3498db;
+  margin-bottom: 5px;
+  word-break: break-word;
+}
+
+.session-date {
+  display: block;
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
+.session-users {
+  margin-bottom: 20px;
+}
+
+.session-users h3 {
+  font-size: 1rem;
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.session-users ul {
+  list-style-type: none;
+  padding-left: 5px;
+}
+
+.session-users li {
+  font-size: 0.9rem;
+  margin-bottom: 3px;
+  padding: 3px 0;
+  border-bottom: 1px dashed #eee;
+}
+
+/* View Button */
+.view-button {
+  display: block;
+  background-color: #3498db;
+  color: white;
+  text-decoration: none;
+  text-align: center;
+  padding: 10px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.view-button:hover {
+  background-color: #2980b9;
+}
+
+/* Empty State */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state p {
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .session-container {
+    grid-template-columns: 1fr;
+  }
+}
