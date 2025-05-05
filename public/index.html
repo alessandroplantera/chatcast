@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages</title>
+</head>
+<body>
+  <h1>ChatCast</h1>
+
+  
+  <div id="chat-list-container">
+    <!-- Chat list will be inserted here -->
+  </div>
+
+  <div id="chat-sessions-container">
+    <!-- Chat list will be inserted here -->
+  </div>
+
+  
+  <div id="message-container">
+    <!-- Messages will be inserted here -->
+  </div>
+
+  <script src="./script.js"></script>
+  
+  <script>
+    fetchChatIds();
+    fetchChatSessions();
+    
+    
+    // Poll every 5 seconds
+    setInterval(fetchMessages, 5000);
+
+    // Initial call to fetch messages
+    fetchMessages();
+  </script>
+
+</body>
+</html>
