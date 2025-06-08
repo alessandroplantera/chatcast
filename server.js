@@ -498,7 +498,13 @@ fastify.register(require("@fastify/cors")); // Enable CORS for frontend
 
 // Serve the index page
 fastify.get("/", async (request, reply) => {
-  return reply.sendFile("index.html");
+  try {
+    const sessions = await db.getAllSessionsWithDetails();
+    return reply.view("homepage.hbs", { sessions });
+  } catch (err) {
+    console.error(err);
+    return reply.view("homepage.hbs", { sessions: [] });
+  }
 });
 
 // Enhanced endpoint to get sessions with details

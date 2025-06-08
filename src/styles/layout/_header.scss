@@ -1,0 +1,65 @@
+// layout/_header.scss - Header component styles (Modern syntax)
+
+@use 'sass:map';
+@use '../abstracts/variables' as *;
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: $header-height;
+  background-color: color(bg-primary);
+  border-bottom: 1px solid color(border-primary);
+  z-index: map.get($z-index, sticky);
+  display: flex;
+  align-items: center;
+  padding: 0 spacing(6);
+  
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: spacing(3);
+    
+    &-logo {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background-color: color(text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: font-size(lg);
+      font-weight: font-weight(bold);
+      color: color(bg-primary);
+    }
+    
+    &-name {
+      font-size: font-size(lg);
+      font-weight: font-weight(bold);
+      color: color(primary);
+    }
+  }
+  
+  &__status {
+    flex: 1;
+    text-align: center;
+    
+    &-text {
+      font-size: font-size(base);
+      color: color(text-secondary);
+      
+      .status-indicator {
+        color: color(primary);
+        font-weight: font-weight(medium);
+      }
+    }
+  }
+  
+  &__time {
+    font-size: font-size(base);
+    color: color(text-primary);
+    font-weight: font-weight(medium);
+    font-family: $font-family-mono;
+  }
+}

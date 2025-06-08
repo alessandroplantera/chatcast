@@ -1,0 +1,55 @@
+@use 'sass:map';
+@use '../abstracts/variables' as *;
+
+.message-thread {
+  padding: spacing(8);
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  
+  &__message {
+    margin-bottom: spacing(6);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: spacing(3);
+    margin-bottom: spacing(2);
+  }
+  
+  &__username {
+    background-color: color(text-muted);
+    color: color(bg-primary);
+    padding: spacing(1) spacing(3);
+    border-radius: border-radius(full);
+    font-size: font-size(sm);
+    font-weight: font-weight(medium);
+  }
+  
+  &__timestamp {
+    font-size: font-size(sm);
+    color: color(text-muted);
+    font-family: $font-family-mono;
+  }
+  
+  &__content {
+    background-color: color(bg-secondary);
+    padding: spacing(4) spacing(5);
+    border-radius: border-radius(lg);
+    color: color(text-primary);
+    font-size: font-size(base);
+    line-height: map.get($line-heights, relaxed);
+    max-width: 80%;
+    border: 1px solid color(border-light);
+  }
+}

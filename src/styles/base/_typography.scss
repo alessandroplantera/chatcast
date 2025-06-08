@@ -1,0 +1,37 @@
+// base/_typography.scss - Typography foundation (Modern syntax)
+
+@use 'sass:map';
+@use '../abstracts/variables' as *;
+
+body {
+  font-family: $font-family-primary;
+  font-size: font-size(base);
+  font-weight: font-weight(normal);
+  line-height: map.get($line-heights, normal);
+  color: color(text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: font-weight(semibold);
+  line-height: map.get($line-heights, tight);
+  color: color(text-primary);
+}
+
+h1 { font-size: font-size(4xl); }
+h2 { font-size: font-size(3xl); }
+h3 { font-size: font-size(2xl); }
+h4 { font-size: font-size(xl); }
+h5 { font-size: font-size(lg); }
+h6 { font-size: font-size(base); }
+
+p {
+  margin: 0;
+  line-height: map.get($line-heights, relaxed);
+}
+
+strong, b {
+  font-weight: font-weight(semibold);
+}

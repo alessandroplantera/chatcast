@@ -1,103 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatCast - {{session.title}}</title>
-  <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{#if session.title}}{{session.title}}{{else}}Conversation{{/if}} - ChatCast</title>
+  <meta name="description" content="ChatCast conversation view">
+  
+  <!-- Favicon -->
+  <link rel="icon" href="https://cdn.glitch.me/favicon.ico">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header class="page-header">
-    <div class="container">
-      <div class="header-logo">
-        <i class="fas fa-comments fa-lg"></i>
-        <span class="logo-text">ChatCast</span>
-      </div>
-      <h1 class="page-title">Telegram Conversation</h1>
-    </div>
-  </header>
 
-  <main class="container">
-    <div class="chat-container">
-      <div class="chat-header">
-        <h2 class="chat-title">{{session.title}}</h2>
-        <a href="/sessions-view" class="back-link">
-          <i class="fas fa-arrow-left"></i> Back to Sessions
-        </a>
+<body data-session-status="{{#if session.status}}{{session.status}}{{else}}completed{{/if}}">
+  <div class="main-layout">
+    <!-- Header -->
+    <header class="header main-layout__header">
+      <div class="header__brand">
+        <div class="header__brand-logo">C</div>
+        <div class="header__brand-name">ChatCast</div>
       </div>
       
-      <div class="session-info">
-        <div class="session-meta">
-          <div class="meta-item">
-            <i class="fas fa-calendar"></i>
-            <span>Started: {{formatDate session.start_date}}</span>
-          </div>
-          <div class="meta-item">
-            <i class="fas fa-users"></i>
-            <span>Participants: {{session.participants.length}}</span>
-          </div>
-          <div class="meta-item">
-            <i class="fas fa-comment"></i>
-            <span>Messages: {{session.message_count}}</span>
-          </div>
-          {{#if session.status}}
-            <div class="meta-item status-{{toLowerCase session.status}}">
-              <i class="fas {{statusIcon session.status}}"></i>
-              <span>Status: {{session.status}}</span>
-            </div>
+      <div class="header__status">
+        <div class="header__status-text">
+          {{#if session}}
+            {{#if (eq session.status 'active')}}
+              Now online: <span class="status-indicator status-indicator--live">
+                {{#if session.participants.length}}
+                  {{#each session.participants}}
+                    {{this}}{{#unless @last}} and {{/unless}}
+                  {{/each}}
+                {{else}}
+                  Alex and Sam
+                {{/if}}
+              </span> 
+              Talking about: <strong>{{#if session.title}}{{session.title}}{{else}}The future{{/if}}</strong>
+            {{else}}
+              Viewing archived conversation: <strong>{{#if session.title}}{{session.title}}{{else}}Conversation{{/if}}</strong>
+            {{/if}}
+          {{else}}
+            Viewing conversation
           {{/if}}
         </div>
-        <div class="session-id">ID: {{session.session_id}}</div>
       </div>
       
-      <div class="messages-list">
-        {{#if messages.length}}
-          {{#groupByUser messages}}
-            <div class="message-group">
-              {{#each this}}
-                {{#if @first}}
-                  <div class="message">
-                    <div class="message-header">
-                      <span class="message-username">{{this.username}}</span>
-                      <span class="message-date">{{formatDate this.date}}</span>
-                    </div>
-                    <div class="message-text">{{this.message}}</div>
-                  </div>
-                {{else}}
-                  <div class="message same-user">
-                    <div class="message-header">
-                      <span class="message-date">{{formatDate this.date}}</span>
-                    </div>
-                    <div class="message-text">{{this.message}}</div>
-                  </div>
-                {{/if}}
-              {{/each}}
-            </div>
-          {{/groupByUser}}
-        {{else}}
-          <div class="empty-state">
-            <h2>No Messages</h2>
-            <p>This session doesn't contain any messages, or they might have been deleted.</p>
-          </div>
-        {{/if}}
-      </div>
-      
-      <div class="chat-footer">
-        <a href="/sessions-view" class="back-button">
-          <i class="fas fa-arrow-left"></i> Back to All Sessions
-        </a>
-      </div>
-    </div>
-  </main>
+      <div class="header__time" id="current-time">18:40</div>
+    </header>
 
-  <script>
-    // Auto-refresh every 10 seconds if the session is active
-    {{#if (eq session.status "active")}}
-      setTimeout(() => {
-        window.location.reload();
-      }, 10000);
-    {{/if}}
-  </script>
+    <!-- Main Content -->
+    <main class="main-layout__content">
+      <div class="split-panel">
+        <!-- Left Panel - Conversation Details -->
+        <div class="split-panel__left">
+          <div class="conversation-detail">
+            <!-- Conversation Title -->
+            <h1 class="conversation-detail__title">
+              {{#if session.title}}
+                {{session.title}}
+              {{else}}
+                Talking about the future
+              {{/if}}
+              {{#if session.participants.length}}
+                with 
+                {{#each session.participants}}
+                  {{this}}{{#unless @last}} and {{/unless}}
+                {{/each}}
+              {{else}}
+                with &lt;User&gt;
+              {{/if}}
+            </h1>
+            
+            <!-- Visual Element with Metadata -->
+            <div class="conversation-detail__visual">
+              <div class="conversation-detail__visual-circle">
+                <div class="conversation-detail__metadata">
+                  <div class="conversation-detail__metadata-item">
+                    <span class="conversation-detail__metadata-item-label">Started:</span><br>
+                    <span class="conversation-detail__metadata-item-value">
+                      {{#if session.start_date}}
+                        {{formatDate session.start_date "DD/MM/YYYY"}}
+                      {{else}}
+                        05/05/2025
+                      {{/if}}
+                    </span>
+                  </div>
+                  
+                  <div class="conversation-detail__metadata-item">
+                    <span class="conversation-detail__metadata-item-value">
+                      {{#if session.start_date}}
+                        {{formatDate session.start_date "HH:mm:ss"}}
+                      {{else}}
+                        22:33:12
+                      {{/if}}
+                    </span>
+                  </div>
+                  
+                  <div class="conversation-detail__metadata-item">
+                    <span class="conversation-detail__metadata-item-label">Messages:</span>
+                    <span class="conversation-detail__metadata-item-value">
+                      {{#if session.message_count}}{{session.message_count}}{{else}}{{messages.length}}{{/if}}
+                    </span>
+                  </div>
+                  
+                  <div class="conversation-detail__metadata-item">
+                    <span class="conversation-detail__metadata-item-label">Status:</span>
+                    <span class="conversation-detail__metadata-item-value">
+                      {{#if session.status}}
+                        {{#if (eq session.status 'active')}}Active{{/if}}
+                        {{#if (eq session.status 'paused')}}Paused{{/if}}
+                        {{#if (eq session.status 'completed')}}Completed{{/if}}
+                      {{else}}
+                        Active
+                      {{/if}}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel - Message Thread -->
+        <div class="split-panel__right">
+          <div class="message-thread">
+            {{#each messages}}
+            <div class="message-thread__message">
+              <div class="message-thread__header">
+                <div class="message-thread__username">
+                  {{#if this.username}}{{this.username}}{{else}}Anonymous{{/if}}
+                </div>
+                <div class="message-thread__timestamp">
+                  {{#if this.date}}
+                    {{formatDate this.date "HH:mm:ss"}}
+                  {{else}}
+                    22:33:12
+                  {{/if}}
+                </div>
+              </div>
+              <div class="message-thread__content">
+                {{#if this.message}}
+                  {{this.message}}
+                {{else}}
+                  No message content
+                {{/if}}
+              </div>
+            </div>
+            {{else}}
+            <!-- Empty state when no messages -->
+            <div class="message-thread__message">
+              <div class="message-thread__header">
+                <div class="message-thread__username">Alex</div>
+                <div class="message-thread__timestamp">22:33:12</div>
+              </div>
+              <div class="message-thread__content">
+                Hey, just watched this documentary about future tech. Super interesting!
+              </div>
+            </div>
+            
+            <div class="message-thread__message">
+              <div class="message-thread__header">
+                <div class="message-thread__username">Sam</div>
+                <div class="message-thread__timestamp">22:33:12</div>
+              </div>
+              <div class="message-thread__content">
+                Oh cool, what was it about?
+              </div>
+            </div>
+            
+            <div class="message-thread__message">
+              <div class="message-thread__header">
+                <div class="message-thread__username">Alex</div>
+                <div class="message-thread__timestamp">22:33:12</div>
+              </div>
+              <div class="message-thread__content">
+                It covered everything from AI to biotech to space colonization. Got me thinking about where we'll be in 10 years.
+              </div>
+            </div>
+            
+            <div class="message-thread__message">
+              <div class="message-thread__header">
+                <div class="message-thread__username">Sam</div>
+                <div class="message-thread__timestamp">22:33:12</div>
+              </div>
+              <div class="message-thread__content">
+                Oh cool, what was it about?
+              </div>
+            </div>
+            {{/each}}
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Navigation FAB -->
+  <button class="navigation-fab" title="Back to conversations">
+    <svg class="navigation-fab__icon" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+    </svg>
+  </button>
+
+  <!-- External JavaScript -->
+  <script src="/js/conversation.js"></script>
 </body>
 </html>

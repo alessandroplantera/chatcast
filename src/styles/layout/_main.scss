@@ -1,0 +1,46 @@
+// layout/_main.scss - Main layout and split panel
+
+@use '../abstracts/variables' as *;
+
+.main-layout {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  
+  &__content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    margin-top: $header-height;
+  }
+}
+
+.split-panel {
+  display: flex;
+  height: 100%;
+  
+  &__left {
+    width: 50%;
+    background-color: color(bg-primary);
+    padding: spacing(8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid color(border-primary);
+    position: relative;
+  }
+  
+  &__right {
+    width: 50%;
+    background-color: color(bg-primary);
+    overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+    
+    &::-webkit-scrollbar { /* WebKit */
+      width: 0;
+      height: 0;
+    }
+  }
+}

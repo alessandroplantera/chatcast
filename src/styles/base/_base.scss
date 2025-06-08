@@ -1,0 +1,12 @@
+// base/_base.scss - Base HTML element styles
+
+@use '../abstracts/variables' as *;
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: color(bg-primary);
+}

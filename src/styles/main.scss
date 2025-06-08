@@ -1,0 +1,67 @@
+// main.scss - Simplified approach (inline responsive rules)
+
+// ALL @use rules must come at the very beginning
+@use 'abstracts/variables' as *;
+@use 'abstracts/mixins' as *;
+@use 'base/reset';
+@use 'base/typography';
+@use 'base/base';
+@use 'layout/header';
+@use 'layout/main';
+@use 'components/conversation-display';
+@use 'components/conversation-list';
+@use 'components/status-indicator';
+@use 'components/conversation-detail';
+@use 'components/message-thread';
+@use 'components/navigation-fab';
+
+// Import Google Fonts after all @use rules
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+// Utilities - Helper classes
+.scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+// Responsive utilities (using direct media queries instead of mixin)
+@media (max-width: 768px) {
+  .split-panel {
+    flex-direction: column;
+    
+    &__left,
+    &__right {
+      width: 100%;
+    }
+    
+    &__left {
+      border-right: none;
+      border-bottom: 1px solid color(border-primary);
+      padding: spacing(6);
+    }
+  }
+  
+  .conversation-display {
+    &__info-date {
+      font-size: font-size(3xl);
+    }
+    
+    &__visual-circle {
+      width: 200px;
+      height: 200px;
+    }
+  }
+  
+  .header {
+    padding: 0 spacing(4);
+    
+    &__status {
+      display: none;
+    }
+  }
+}

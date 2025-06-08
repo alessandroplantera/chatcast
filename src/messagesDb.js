@@ -1,6 +1,6 @@
 const sqlite3 = require("sqlite3").verbose();
-const dbWrapper = require("sqlite");
 const fs = require("fs");
+const path = require("path");
 
 const dbFile = "./.data/messages.db";
 const exists = require("fs").existsSync(dbFile);
@@ -9,313 +9,428 @@ let db; // To store the database connection
 
 // Initialize the database
 async function initializeDb() {
-  db = await dbWrapper.open({ filename: dbFile, driver: sqlite3.Database });
-
-  if (!exists) {
-    // Create the database from scratch (if it doesn't exist)
-    await db.run(`
-      CREATE TABLE Messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id TEXT,
-        session_id TEXT,
-        session_title TEXT,
-        date TEXT,
-        username TEXT,
-        message TEXT
-      )
-    `);
-    
-    // Create a separate Sessions table to store session metadata
-    await db.run(`
-      CREATE TABLE Sessions (
-        session_id TEXT PRIMARY KEY,
-        title TEXT,
-        created_at TEXT,
-        status TEXT
-      )
-    `);
-    
-    console.log("Database tables created with session title support.");
-  } else {
-    // Check if the session_id column exists in Messages, if not add it
-    const messagesInfo = await db.all("PRAGMA table_info(Messages)");
-    
-    if (!messagesInfo.some(column => column.name === 'session_id')) {
-      console.log("Adding session_id column to Messages table...");
-      await db.run("ALTER TABLE Messages ADD COLUMN session_id TEXT");
-      console.log("session_id column added successfully.");
-    }
-    
-    if (!messagesInfo.some(column => column.name === 'session_title')) {
-      console.log("Adding session_title column to Messages table...");
-      await db.run("ALTER TABLE Messages ADD COLUMN session_title TEXT");
-      console.log("session_title column added successfully.");
-    }
-    
-    // Check if Sessions table exists, if not create it
-    const tablesQuery = await db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='Sessions'");
-    if (tablesQuery.length === 0) {
-      console.log("Creating Sessions table...");
-      await db.run(`
-        CREATE TABLE Sessions (
-          session_id TEXT PRIMARY KEY,
-          title TEXT,
-          created_at TEXT,
-          status TEXT
-        )
-      `);
-      console.log("Sessions table created successfully.");
-    }
-  }
+  return new Promise((resolve, reject) => {
+    db = new sqlite3.Database(dbFile, (err) => {
+      if (err) {
+        console.error("Error opening database:", err);
+        reject(err);
+        return;
+      }
+      
+      console.log("Database connection established");
+      
+      if (!exists) {
+        // Create the database from scratch (if it doesn't exist)
+        db.serialize(() => {
+          db.run(`
+            CREATE TABLE Messages (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              chat_id TEXT,
+              session_id TEXT,
+              session_title TEXT,
+              date TEXT,
+              username TEXT,
+              message TEXT
+            )
+          `, (err) => {
+            if (err) console.error("Error creating Messages table:", err);
+            else console.log("Messages table created");
+          });
+          
+          // Create a separate Sessions table to store session metadata
+          db.run(`
+            CREATE TABLE Sessions (
+              session_id TEXT PRIMARY KEY,
+              title TEXT,
+              created_at TEXT,
+              status TEXT
+            )
+          `, (err) => {
+            if (err) console.error("Error creating Sessions table:", err);
+            else console.log("Sessions table created");
+          });
+        });
+        
+        console.log("Database tables created with session title support.");
+        resolve();
+      } else {
+        // Check if the session_id column exists in Messages, if not add it
+        db.all("PRAGMA table_info(Messages)", (err, messagesInfo) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          
+          const hasSessionId = messagesInfo.some(column => column.name === 'session_id');
+          const hasSessionTitle = messagesInfo.some(column => column.name === 'session_title');
+          
+          if (!hasSessionId) {
+            console.log("Adding session_id column to Messages table...");
+            db.run("ALTER TABLE Messages ADD COLUMN session_id TEXT", (err) => {
+              if (err) console.error("Error adding session_id column:", err);
+              else console.log("session_id column added successfully.");
+            });
+          }
+          
+          if (!hasSessionTitle) {
+            console.log("Adding session_title column to Messages table...");
+            db.run("ALTER TABLE Messages ADD COLUMN session_title TEXT", (err) => {
+              if (err) console.error("Error adding session_title column:", err);
+              else console.log("session_title column added successfully.");
+            });
+          }
+          
+          // Check if Sessions table exists, if not create it
+          db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='Sessions'", (err, tablesQuery) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            
+            if (tablesQuery.length === 0) {
+              console.log("Creating Sessions table...");
+              db.run(`
+                CREATE TABLE Sessions (
+                  session_id TEXT PRIMARY KEY,
+                  title TEXT,
+                  created_at TEXT,
+                  status TEXT
+                )
+              `, (err) => {
+                if (err) console.error("Error creating Sessions table:", err);
+                else console.log("Sessions table created successfully.");
+                resolve();
+              });
+            } else {
+              resolve();
+            }
+          });
+        });
+      }
+    });
+  });
 }
 
+// Initialize database on module load
 initializeDb().catch((err) => {
   console.error("Error initializing database:", err);
 });
 
 // Create or update a session
 async function saveSession(sessionData) {
-  try {
-    const { session_id } = sessionData;
-    
-    if (!session_id) {
-      throw new Error("Session ID is required");
+  return new Promise((resolve, reject) => {
+    try {
+      const { session_id } = sessionData;
+      
+      if (!session_id) {
+        reject(new Error("Session ID is required"));
+        return;
+      }
+      
+      console.log("saveSession input data:", JSON.stringify(sessionData));
+      
+      // Get existing session first
+      db.get("SELECT * FROM Sessions WHERE session_id = ?", [session_id], (err, existingSession) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        let title = sessionData.title;
+        let status = sessionData.status;
+        let created_at = sessionData.created_at || new Date().toISOString();
+        
+        if (existingSession) {
+          // Update existing session
+          if (title === null || title === undefined) {
+            title = existingSession.title;
+          }
+          
+          if (status === null || status === undefined) {
+            status = existingSession.status;
+          }
+          
+          console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}`);
+          
+          db.run(
+            "UPDATE Sessions SET title = ?, status = ? WHERE session_id = ?",
+            [title, status, session_id],
+            function(err) {
+              if (err) {
+                reject(err);
+                return;
+              }
+              
+              console.log(`Update result: ${this.changes} row(s) affected`);
+              resolve({
+                session_id,
+                title,
+                created_at: existingSession.created_at,
+                status
+              });
+            }
+          );
+        } else {
+          // Create new session
+          if (!status) {
+            status = 'active';
+          }
+          
+          console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}`);
+          
+          db.run(
+            "INSERT INTO Sessions (session_id, title, created_at, status) VALUES (?, ?, ?, ?)",
+            [session_id, title, created_at, status],
+            function(err) {
+              if (err) {
+                reject(err);
+                return;
+              }
+              
+              console.log(`Insert result: ${this.lastID}`);
+              resolve({ session_id, title, created_at, status });
+            }
+          );
+        }
+      });
+    } catch (error) {
+      console.error("Error saving session:", error);
+      reject(error);
     }
-    
-    // Log completo dei dati in ingresso per debug
-    console.log("saveSession input data:", JSON.stringify(sessionData));
-    
-    // Ottieni la sessione esistente (se esiste)
-    const existingSession = await db.get("SELECT * FROM Sessions WHERE session_id = ?", [session_id]);
-    
-    // Prepara i dati da salvare
-    let title = sessionData.title;
-    let status = sessionData.status;
-    let created_at = sessionData.created_at || new Date().toISOString();
-    
-    // Se stiamo aggiornando una sessione esistente e non è stato fornito un titolo,
-    // mantieni il titolo esistente
-    if (existingSession) {
-      // Per il titolo
-      if (title === null || title === undefined) {
-        title = existingSession.title;
-      }
-      
-      // Per lo stato
-      if (status === null || status === undefined) {
-        status = existingSession.status;
-      }
-      
-      // Aggiorna la sessione esistente
-      console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}`);
-      
-      const updateResult = await db.run(
-        "UPDATE Sessions SET title = ?, status = ? WHERE session_id = ?",
-        [title, status, session_id]
-      );
-      
-      console.log(`Update result: ${updateResult.changes} row(s) affected`);
-      
-      // Verifica che l'aggiornamento sia avvenuto correttamente
-      const updatedSession = await db.get("SELECT * FROM Sessions WHERE session_id = ?", [session_id]);
-      console.log("Updated session in DB:", JSON.stringify(updatedSession));
-      
-      return {
-        session_id,
-        title,
-        created_at: existingSession.created_at,
-        status
-      };
-    } else {
-      // Crea una nuova sessione
-      // Se lo stato non è specificato, impostiamo 'active' come default
-      if (!status) {
-        status = 'active';
-      }
-      
-      console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}`);
-      
-      const insertResult = await db.run(
-        "INSERT INTO Sessions (session_id, title, created_at, status) VALUES (?, ?, ?, ?)",
-        [session_id, title, created_at, status]
-      );
-      
-      console.log(`Insert result: ${insertResult.lastID}`);
-      
-      return { session_id, title, created_at, status };
-    }
-  } catch (error) {
-    console.error("Error saving session:", error);
-    throw error;
-  }
+  });
 }
 
 // Get a session by ID
 async function getSession(sessionId) {
-  try {
-    return await db.get("SELECT * FROM Sessions WHERE session_id = ?", [sessionId]);
-  } catch (error) {
-    console.error("Error getting session:", error);
-    return null;
-  }
+  return new Promise((resolve, reject) => {
+    db.get("SELECT * FROM Sessions WHERE session_id = ?", [sessionId], (err, row) => {
+      if (err) {
+        console.error("Error getting session:", err);
+        resolve(null);
+      } else {
+        resolve(row);
+      }
+    });
+  });
 }
 
 // Save a message to the database
 async function saveMessage(messageData) {
-  try {
-    const { chat_id, session_id, date, username, message } = messageData;
-    let session_title = messageData.session_title;
-    
-    // Get session title if not provided
-    if (session_id && !session_title) {
-      const session = await getSession(session_id);
-      session_title = session ? session.title : null;
+  return new Promise((resolve, reject) => {
+    try {
+      const { chat_id, session_id, date, username, message } = messageData;
+      let session_title = messageData.session_title;
+      
+      // Get session title if not provided
+      if (session_id && !session_title) {
+        getSession(session_id).then(session => {
+          session_title = session ? session.title : null;
+          
+          db.run(
+            `INSERT INTO Messages (chat_id, session_id, session_title, date, username, message) VALUES (?, ?, ?, ?, ?, ?)`,
+            [chat_id, session_id || null, session_title || null, date, username, message],
+            function(err) {
+              if (err) {
+                console.error("Error saving message:", err);
+                reject(err);
+              } else {
+                resolve(this.lastID);
+              }
+            }
+          );
+        });
+      } else {
+        db.run(
+          `INSERT INTO Messages (chat_id, session_id, session_title, date, username, message) VALUES (?, ?, ?, ?, ?, ?)`,
+          [chat_id, session_id || null, session_title || null, date, username, message],
+          function(err) {
+            if (err) {
+              console.error("Error saving message:", err);
+              reject(err);
+            } else {
+              resolve(this.lastID);
+            }
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error saving message:", error);
+      reject(error);
     }
-    
-    await db.run(
-      `INSERT INTO Messages (chat_id, session_id, session_title, date, username, message) VALUES (?, ?, ?, ?, ?, ?)`,
-      [chat_id, session_id || null, session_title || null, date, username, message]
-    );
-  } catch (error) {
-    console.error("Error saving message:", error);
-  }
+  });
 }
 
 // Retrieve messages based on chat ID
 async function getMessages(chatId = "all") {
-  try {
-    let query;
-    let params = [];
+  return new Promise((resolve, reject) => {
+    try {
+      let query;
+      let params = [];
 
-    if (chatId === "all") {
-      query = "SELECT * FROM Messages ORDER BY date DESC LIMIT 100";
-    } else {
-      query = "SELECT * FROM Messages WHERE chat_id = ? ORDER BY date DESC LIMIT 100";
-      params.push(chatId);
+      if (chatId === "all") {
+        query = "SELECT * FROM Messages ORDER BY date DESC LIMIT 100";
+      } else {
+        query = "SELECT * FROM Messages WHERE chat_id = ? ORDER BY date DESC LIMIT 100";
+        params.push(chatId);
+      }
+
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          console.error("Error retrieving messages:", err);
+          resolve([]);
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (err) {
+      console.error("Error retrieving messages:", err);
+      resolve([]);
     }
-
-    const rows = await db.all(query, params);
-    return rows;
-  } catch (err) {
-    console.error("Error retrieving messages:", err);
-    return [];
-  }
+  });
 }
 
 // Get a list of unique chat IDs
 async function getUniqueChatIds() {
-  try {
-    const rows = await db.all("SELECT DISTINCT chat_id FROM Messages");
-    return rows.map(row => row.chat_id);
-  } catch (err) {
-    console.error("Error retrieving unique chat IDs:", err);
-    return [];
-  }
+  return new Promise((resolve, reject) => {
+    db.all("SELECT DISTINCT chat_id FROM Messages", (err, rows) => {
+      if (err) {
+        console.error("Error retrieving unique chat IDs:", err);
+        resolve([]);
+      } else {
+        resolve(rows.map(row => row.chat_id));
+      }
+    });
+  });
 }
 
 // Get messages by session ID
 async function getMessagesBySession(sessionId) {
-  try {
+  return new Promise((resolve, reject) => {
     const query = "SELECT * FROM Messages WHERE session_id = ? ORDER BY date ASC";
-    const rows = await db.all(query, [sessionId]);
-    return rows;
-  } catch (err) {
-    console.error("Error retrieving messages by session ID:", err);
-    return [];
-  }
+    db.all(query, [sessionId], (err, rows) => {
+      if (err) {
+        console.error("Error retrieving messages by session ID:", err);
+        resolve([]);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
 }
 
 // Get a list of unique session IDs
 async function getUniqueSessions() {
-  try {
+  return new Promise((resolve, reject) => {
     // First try to get from the Sessions table
-    const sessions = await db.all("SELECT * FROM Sessions ORDER BY created_at DESC");
-    
-    if (sessions.length > 0) {
-      return sessions.map(s => s.session_id);
-    }
-    
-    // Fall back to messages table if Sessions table is empty
-    const rows = await db.all("SELECT DISTINCT session_id FROM Messages WHERE session_id IS NOT NULL");
-    return rows.map(row => row.session_id).filter(id => id);
-  } catch (err) {
-    console.error("Error retrieving unique session IDs:", err);
-    return [];
-  }
+    db.all("SELECT * FROM Sessions ORDER BY created_at DESC", (err, sessions) => {
+      if (err) {
+        console.error("Error retrieving unique session IDs:", err);
+        resolve([]);
+        return;
+      }
+      
+      if (sessions.length > 0) {
+        resolve(sessions.map(s => s.session_id));
+      } else {
+        // Fall back to messages table if Sessions table is empty
+        db.all("SELECT DISTINCT session_id FROM Messages WHERE session_id IS NOT NULL", (err, rows) => {
+          if (err) {
+            console.error("Error retrieving unique session IDs from Messages:", err);
+            resolve([]);
+          } else {
+            resolve(rows.map(row => row.session_id).filter(id => id));
+          }
+        });
+      }
+    });
+  });
 }
 
 // Get all sessions from the Sessions table
 async function getAllSessions() {
-  try {
-    return await db.all("SELECT * FROM Sessions ORDER BY created_at DESC");
-  } catch (err) {
-    console.error("Error retrieving all sessions:", err);
-    return [];
-  }
+  return new Promise((resolve, reject) => {
+    db.all("SELECT * FROM Sessions ORDER BY created_at DESC", (err, rows) => {
+      if (err) {
+        console.error("Error retrieving all sessions:", err);
+        resolve([]);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
 }
 
 async function getSessionDetails(sessionId) {
   try {
     console.log(`Getting details for session: ${sessionId}`);
     
-    // First, try to get the session from the Sessions table
+    // Get the session from the Sessions table
     const sessionRecord = await getSession(sessionId);
-    
-    // Log completo per debug
     console.log("Session record from DB:", JSON.stringify(sessionRecord));
     
-    // Get first message date (start date)
-    const firstMsg = await db.get(
-      "SELECT date FROM Messages WHERE session_id = ? ORDER BY date ASC LIMIT 1",
-      [sessionId]
-    );
+    // Get first and last message dates
+    const firstMsg = await new Promise((resolve) => {
+      db.get(
+        "SELECT date FROM Messages WHERE session_id = ? ORDER BY date ASC LIMIT 1",
+        [sessionId],
+        (err, row) => resolve(err ? null : row)
+      );
+    });
     
-    // Get last message date (end date)
-    const lastMsg = await db.get(
-      "SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1",
-      [sessionId]
-    );
+    const lastMsg = await new Promise((resolve) => {
+      db.get(
+        "SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1",
+        [sessionId],
+        (err, row) => resolve(err ? null : row)
+      );
+    });
     
     // Get unique participants
-    const participants = await db.all(
-      "SELECT DISTINCT username FROM Messages WHERE session_id = ?",
-      [sessionId]
-    );
+    const participants = await new Promise((resolve) => {
+      db.all(
+        "SELECT DISTINCT username FROM Messages WHERE session_id = ?",
+        [sessionId],
+        (err, rows) => resolve(err ? [] : rows)
+      );
+    });
     
     // Get message count
-    const countResult = await db.get(
-      "SELECT COUNT(*) as count FROM Messages WHERE session_id = ?",
-      [sessionId]
-    );
+    const countResult = await new Promise((resolve) => {
+      db.get(
+        "SELECT COUNT(*) as count FROM Messages WHERE session_id = ?",
+        [sessionId],
+        (err, row) => resolve(err ? { count: 0 } : row)
+      );
+    });
     
-    // Get a sample message to get session_title from if not in Sessions table
+    // Get title
     let title = sessionRecord ? sessionRecord.title : null;
     if (!title) {
-      const sampleMessage = await db.get(
-        "SELECT session_title FROM Messages WHERE session_id = ? AND session_title IS NOT NULL LIMIT 1",
-        [sessionId]
-      );
+      const sampleMessage = await new Promise((resolve) => {
+        db.get(
+          "SELECT session_title FROM Messages WHERE session_id = ? AND session_title IS NOT NULL LIMIT 1",
+          [sessionId],
+          (err, row) => resolve(err ? null : row)
+        );
+      });
       title = sampleMessage ? sampleMessage.session_title : null;
     }
     
-    // Per lo stato, se non è definito nella tabella Sessions, impostiamo un default in base ai messaggi
+    // Get status
     let status = sessionRecord ? sessionRecord.status : 'unknown';
     
-    // Se non c'è uno stato definito ma ci sono messaggi, impostiamo 'completed' come default
     if ((!status || status === 'unknown') && countResult && countResult.count > 0) {
       status = 'completed';
       
-      // Aggiorna lo stato nel database se sono presenti messaggi ma non c'è uno stato definito
       if (sessionRecord) {
         console.log(`Auto-correcting status for session ${sessionId} to 'completed'`);
-        await db.run(
+        db.run(
           "UPDATE Sessions SET status = 'completed' WHERE session_id = ?",
           [sessionId]
         );
       }
     }
     
-    // Use session ID as title if no title is found
     title = title || sessionId;
     
     const sessionDetails = {
@@ -364,45 +479,25 @@ async function getAllSessionsWithDetails() {
   }
 }
 
-/**
- * Verifica e corregge lo stato delle sessioni inattive
- * Una sessione è considerata "stale" se è attiva ma non ha messaggi nuovi da più di X ore
- */
-
 async function checkAndFixSessionStatuses() {
-  // Initialize messagesDb if not already done
-  let messagesDb;
-  
-  try {
-      const sqlite3 = require('sqlite3').verbose();
-      const path = require('path');
-      
-      // Try to connect to the database
-      const dbPath = path.join(__dirname, '../data/messages.db');
-      messagesDb = new sqlite3.Database(dbPath);
-      
-      console.log('✅ Connected to messages database for session check');
-      
-      // Now your existing code can use messagesDb
-      const sessions = await new Promise((resolve, reject) => {
-          messagesDb.all("SELECT * FROM sessions", (err, rows) => {
-              if (err) reject(err);
-              else resolve(rows);
-          });
-      });
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      console.log('⚠️ Database not initialized, skipping session check');
+      resolve({ checked: 0, updated: 0 });
+      return;
+    }
+    
+    db.all("SELECT * FROM Sessions", (err, sessions) => {
+      if (err) {
+        console.error('⚠️ Session status check failed:', err.message);
+        resolve({ checked: 0, updated: 0 });
+        return;
+      }
       
       console.log(`Session status check: found ${sessions.length} sessions`);
-      
-      // Close the connection
-      messagesDb.close();
-      
-      return sessions;
-      
-  } catch (error) {
-      console.log('⚠️ Session status check failed:', error.message);
-      if (messagesDb) messagesDb.close();
-      return [];
-  }
+      resolve({ checked: sessions.length, updated: 0 });
+    });
+  });
 }
 
 module.exports = {
