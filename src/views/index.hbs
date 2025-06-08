@@ -1,49 +1,82 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegram Sessions</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header>
-    <h1>Telegram Recording Sessions</h1>
-  </header>
-  
-  <main>
-    <div class="session-container">
-      {{#if sessions.length}}
-        {{#each sessions}}
-          <div class="session-card">
-            <div class="session-header">
-              <h2 class="session-title">{{session_id}}</h2>
-              <span class="session-date">{{formatDate start_date}}</span>
-            </div>
-            <div class="session-users">
-              <h3>Participants:</h3>
-              <ul>
-                {{#each participants}}
-                  <li>{{this}}</li>
-                {{/each}}
-              </ul>
-            </div>
-            <a href="/messages?session_id={{session_id}}" class="view-button">View Messages</a>
-          </div>
-        {{/each}}
-      {{else}}
-        <div class="empty-state">
-          <p>No recording sessions available.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChatCast - Recording Sessions</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+  </head>
+  <body>
+    <header class="page-header">
+
+      <div class="container">
+        <div class="header-logo">
+          <i class="fas fa-comments fa-lg"></i>
+          <span class="logo-text">ChatCast</span>
         </div>
-      {{/if}}
-    </div>
-  </main>
-  
-  <script>
-    // Refresh the page every minute to show new sessions
-    setTimeout(() => {
-      window.location.reload();
-    }, 60000);
-  </script>
-</body>
+        <h1 class="page-title">Telegram Recording Sessions</h1>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="sessions-grid">
+        {{#if sessions.length}}
+          {{#each sessions}}
+            <div class="session-card">
+              <div class="session-header">
+                <h2 class="session-title">{{this.title}}</h2>
+                <span class="session-date">{{formatDate this.start_date}}</span>
+                {{#if this.status}}
+                  <span class="status-badge status-{{toLowerCase this.status}}">
+                    <i class="fas {{statusIcon this.status}}"></i>
+                    {{this.status}}
+                  </span>
+                {{/if}}
+              </div>
+              <div class="session-content">
+                <span class="message-count">{{this.message_count}}
+                  messages</span>
+                <div class="session-users">
+                  <h3>Participants</h3>
+                  <ul class="users-list">
+                    {{#if this.participants.length}}
+                      {{#each this.participants}}
+                        <li>{{this}}</li>
+                      {{/each}}
+                    {{else}}
+                      <li>No participants</li>
+                    {{/if}}
+                  </ul>
+                </div>
+                <div class="session-id">ID:
+                  {{truncateText this.session_id 20}}</div>
+              </div>
+              <div class="session-footer">
+                <a
+                  href="/messages-view?session_id={{this.session_id}}"
+                  class="view-button"
+                >
+                  View Conversation
+                </a>
+              </div>
+            </div>
+          {{/each}}
+        {{else}}
+          <div class="empty-state">
+            <h2>No Recording Sessions</h2>
+            <p>No telegram recording sessions have been created yet. Start a new
+              recording session using the Telegram bot.</p>
+          </div>
+        {{/if}}
+      </div>
+    </main>
+
+    <script>
+      // Auto-refresh every 60 seconds to show new sessions setTimeout(() => {
+      window.location.reload(); }, 60000);
+    </script>
+  </body>
 </html>

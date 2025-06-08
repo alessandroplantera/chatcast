@@ -3,46 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Messages</title>
+  <title>ChatCast - {{session.title}}</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
-  <h1>Messages</h1>
+  <header class="page-header">
+    <div class="container">
+      <div class="header-logo">
+        <i class="fas fa-comments fa-lg"></i>
+        <span class="logo-text">ChatCast</span>
+      </div>
+      <h1 class="page-title">Telegram Conversation</h1>
+    </div>
+  </header>
 
-  <div id="message-container">
-    <!-- Messages will be inserted here -->
-  </div>
+  <main class="container">
+    <div class="chat-container">
+      <div class="chat-header">
+        <h2 class="chat-title">{{session.title}}</h2>
+        <a href="/sessions-view" class="back-link">
+          <i class="fas fa-arrow-left"></i> Back to Sessions
+        </a>
+      </div>
+      
+      <div class="session-info">
+        <div class="session-meta">
+          <div class="meta-item">
+            <i class="fas fa-calendar"></i>
+            <span>Started: {{formatDate session.start_date}}</span>
+          </div>
+          <div class="meta-item">
+            <i class="fas fa-users"></i>
+            <span>Participants: {{session.participants.length}}</span>
+          </div>
+          <div class="meta-item">
+            <i class="fas fa-comment"></i>
+            <span>Messages: {{session.message_count}}</span>
+          </div>
+          {{#if session.status}}
+            <div class="meta-item status-{{toLowerCase session.status}}">
+              <i class="fas {{statusIcon session.status}}"></i>
+              <span>Status: {{session.status}}</span>
+            </div>
+          {{/if}}
+        </div>
+        <div class="session-id">ID: {{session.session_id}}</div>
+      </div>
+      
+      <div class="messages-list">
+        {{#if messages.length}}
+          {{#groupByUser messages}}
+            <div class="message-group">
+              {{#each this}}
+                {{#if @first}}
+                  <div class="message">
+                    <div class="message-header">
+                      <span class="message-username">{{this.username}}</span>
+                      <span class="message-date">{{formatDate this.date}}</span>
+                    </div>
+                    <div class="message-text">{{this.message}}</div>
+                  </div>
+                {{else}}
+                  <div class="message same-user">
+                    <div class="message-header">
+                      <span class="message-date">{{formatDate this.date}}</span>
+                    </div>
+                    <div class="message-text">{{this.message}}</div>
+                  </div>
+                {{/if}}
+              {{/each}}
+            </div>
+          {{/groupByUser}}
+        {{else}}
+          <div class="empty-state">
+            <h2>No Messages</h2>
+            <p>This session doesn't contain any messages, or they might have been deleted.</p>
+          </div>
+        {{/if}}
+      </div>
+      
+      <div class="chat-footer">
+        <a href="/sessions-view" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to All Sessions
+        </a>
+      </div>
+    </div>
+  </main>
 
   <script>
-    // Function to fetch messages from the server
-    async function fetchMessages() {
-      try {
-        const response = await fetch('/messages');
-        if (!response.ok) {
-          throw new Error('Failed to fetch messages');
-        }
-
-        const messages = await response.json();
-
-        const messageContainer = document.getElementById('message-container');
-        messageContainer.innerHTML = ''; // Clear the current messages
-
-        messages.forEach(message => {
-          const messageElement = document.createElement('div');
-          messageElement.innerHTML = `
-            <strong>${message.username}</strong> (${message.date}): ${message.message}
-          `;
-          messageContainer.appendChild(messageElement);
-        });
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-      }
-    }
-
-    // Poll every 5 seconds
-    setInterval(fetchMessages, 5000);
-
-    // Initial call to fetch messages
-    fetchMessages();
+    // Auto-refresh every 10 seconds if the session is active
+    {{#if (eq session.status "active")}}
+      setTimeout(() => {
+        window.location.reload();
+      }, 10000);
+    {{/if}}
   </script>
 </body>
 </html>

@@ -3,38 +3,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Messages</title>
+  <title>ChatCast - Sessions</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
-  <h1>ChatCast</h1>
+  <header class="page-header">
+    <div class="container">
+      <div class="header-logo">
+        <i class="fas fa-comments fa-lg"></i>
+        <span class="logo-text">ChatCast</span>
+      </div>
+      <div class="page-ticker">someghint very important will happen tonight etc etc...</h1>
+    </div>
+  </header>
 
-  
-  <div id="chat-list-container">
-    <!-- Chat list will be inserted here -->
-  </div>
+  <main class="container">
+    <div id="sessions-container" class="sessions-grid">
+      <!-- Sessions will be loaded here -->
+      <div class="loading">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+      </div>
+    </div>
+  </main>
 
-  <div id="chat-sessions-container">
-    <!-- Chat list will be inserted here -->
-  </div>
-
-  
-  <div id="message-container">
-    <!-- Messages will be inserted here -->
-  </div>
-
-  <script src="./script.js"></script>
-  
   <script>
-    fetchChatIds();
-    fetchChatSessions();
-    
-    
-    // Poll every 5 seconds
-    setInterval(fetchMessages, 5000);
+    // Format date for better readability
+    function formatDate(dateString) {
+      if (!dateString) return "Unknown date";
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    }
 
-    // Initial call to fetch messages
-    fetchMessages();
+    // Truncate long text with ellipsis
+    function truncateText(text, maxLength = 30) {
+      if (!text) return "";
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + "...";
+    }
+
+    // Generate status badge based on session status
+    function getStatusBadge(status) {
+      if (!status) return '';
+      
+      let badgeClass = '';
+      let icon = '';
+      
+      switch(status.toLowerCase()) {
+        case 'active':
+          badgeClass = 'status-active';
+          icon = 'fa-circle-play';
+          break;
+        case 'paused':
+          badgeClass = 'status-paused';
+          icon = 'fa-circle-pause';
+          break;
+        case 'completed':
+          badgeClass = 'status-completed';
+          icon = 'fa-circle-check';
+          break;
+        default:
+          badgeClass = 'status-unknown';
+          icon = 'fa-circle-question';
+      }
+      
+      return `<span class="status-badge ${badgeClass}"><i class="fas ${icon}"></i> ${status}</span>`;
+    }
+
+// Miglioramento alla funzione fetchSessions in public/index.html
+// Sostituisci la funzione fetchSessions esistente con questa versione
+
+// Fetch session data and populate the grid
+async function fetchSessions() {
+  try {
+    // First try to fetch detailed session data from the sessions-details endpoint
+    // Aggiungiamo un parametro timestamp per evitare la cache del browser
+    const cacheBreaker = new Date().getTime();
+    const response = await fetch(`/sessions-details?_=${cacheBreaker}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch sessions');
+    }
+    
+    const sessions = await response.json();
+    const sessionsContainer = document.getElementById('sessions-container');
+    
+    // Clear loading state
+    sessionsContainer.innerHTML = '';
+    
+    if (!sessions || sessions.length === 0) {
+      // Display empty state if no sessions
+      sessionsContainer.innerHTML = `
+        <div class="empty-state">
+          <h2>No Recording Sessions</h2>
+          <p>No telegram recording sessions have been created yet. Start a new recording session using the Telegram bot.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Sort sessions by start date (newest first)
+    sessions.sort((a, b) => {
+      if (!a.start_date) return 1;
+      if (!b.start_date) return -1;
+      return new Date(b.start_date) - new Date(a.start_date);
+    });
+    
+    // Create a card for each session
+    sessions.forEach(session => {
+      const sessionCard = document.createElement('div');
+      sessionCard.className = 'session-card';
+      
+      // Use the session title if available, otherwise use a truncated session ID
+      const displayTitle = session.title || truncateText(session.session_id, 20);
+      
+      // Prima del rendering, assicuriamoci che lo stato sia definito
+      const status = session.status || 'unknown';
+      
+      // Log per debug
+      console.log(`Rendering session ${session.session_id} with status: ${status}`);
+      
+      sessionCard.innerHTML = `
+        <div class="session-header">
+          <h2 class="session-title">${displayTitle}</h2>
+          <span class="session-date">${formatDate(session.start_date)}</span>
+          ${getStatusBadge(status)}
+        </div>
+        <div class="session-content">
+          <span class="message-count">${session.message_count} messages</span>
+          <div class="session-users">
+            <h3>Participants</h3>
+            <ul class="users-list">
+              ${session.participants && session.participants.length > 0 
+                ? session.participants.map(user => `<li>${user}</li>`).join('') 
+                : '<li>No participants</li>'}
+            </ul>
+          </div>
+          <div class="session-id">Session ID: ${truncateText(session.session_id, 20)}</div>
+          <div class="session-status">Status: ${status}</div>
+        </div>
+        <div class="session-footer">
+          <a href="messages.html?session_id=${session.session_id}" class="view-button">
+            View Conversation
+          </a>
+        </div>
+      `;
+      
+      sessionsContainer.appendChild(sessionCard);
+    });
+    
+  } catch (error) {
+    console.error('Error loading sessions:', error);
+    document.getElementById('sessions-container').innerHTML = `
+      <div class="empty-state">
+        <h2>Error Loading Sessions</h2>
+        <p>There was a problem loading the sessions. Please try again later.</p>
+        <p>Error details: ${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Miglioramento alla funzione fetchMessages in public/messages.html
+// Sostituisci la parte iniziale di fetchSessionDetails con questa versione
+
+// Get session details
+async function fetchSessionDetails() {
+  try {
+    // Aggiungiamo un parametro timestamp per evitare la cache del browser
+    const cacheBreaker = new Date().getTime();
+    const response = await fetch(`/session/${sessionId}?_=${cacheBreaker}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch session details');
+    }
+    
+    const session = await response.json();
+    
+    // Log per debug
+    console.log(`Fetched session details for ${sessionId}:`, session);
+    
+    // Assicuriamoci che lo stato sia definito
+    const status = session.status || 'unknown';
+    
+    // Update session info in UI
+    document.getElementById('session-title').textContent = session.title || `Session: ${sessionId}`;
+    document.title = `ChatCast - ${session.title || `Session: ${sessionId}`}`;
+    
+    document.getElementById('session-date').textContent = 
+      `Started: ${formatDate(session.start_date)}`;
+    
+    document.getElementById('session-participants').textContent = 
+      `Participants: ${session.participants ? session.participants.length : 0}`;
+    
+    document.getElementById('session-message-count').textContent = 
+      `Messages: ${session.message_count || 0}`;
+      
+    document.getElementById('session-status').textContent = 
+      `Status: ${status}`;
+      
+    // Add status class
+    if (status) {
+      const statusItem = document.getElementById('session-status').parentElement;
+      statusItem.classList.remove('status-active', 'status-paused', 'status-completed', 'status-unknown');
+      statusItem.classList.add(`status-${status.toLowerCase()}`);
+    }
+    
+    return session;
+  } catch (error) {
+    console.error('Error fetching session details:', error);
+    document.getElementById('session-title').textContent = `Session: ${sessionId}`;
+    return null;
+  }
+}
+    
+    // Initial load of sessions
+    fetchSessions();
+    
+    // Refresh sessions every 30 seconds
+    setInterval(fetchSessions, 30000);
   </script>
-
 </body>
 </html>
