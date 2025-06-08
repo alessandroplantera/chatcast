@@ -1,3 +1,6 @@
+// Load environment variables first
+require('dotenv').config();
+
 const fs = require("fs");
 const path = require("path");
 const { Telegraf, Markup, Scenes, session } = require("telegraf");
@@ -7,360 +10,403 @@ const handlebars = require("handlebars");
 // Import the database functions
 const db = require("./src/messagesDb");
 
-
 // Telegram Bot Setup
 let recordingHasStarted = false;
 let isPaused = false;
 let currentSessionId = null; // Track the current recording session
 let awaitingSessionTitle = false; // Track if we're waiting for a session title
+let bot = null; // Initialize as null
 
-const bot = new Telegraf(process.env.BOT_TOKEN || "YOUR_BOT_TOKEN");
-
-// Enable session management for the bot
-bot.use(session());
+// Improved Telegram bot initialization
+function initializeTelegramBot() {
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+    
+    if (!telegramToken || process.env.TELEGRAM_DISABLED === 'true') {
+        console.log('🔧 Telegram bot disabled - no token provided or explicitly disabled');
+        return null;
+    }
+    
+    // Debug token info
+    console.log('🔍 Telegram Debug:');
+    console.log('- Token exists:', !!telegramToken);
+    console.log('- Token length:', telegramToken?.length);
+    console.log('- Token preview:', telegramToken?.substring(0, 10) + '...');
+    
+    try {
+        bot = new Telegraf(telegramToken);
+        
+        // Enable session management for the bot
+        bot.use(session());
+        
+        // Set up all bot handlers
+        setupBotHandlers();
+        
+        // Launch the bot
+        bot.launch().then(() => {
+            console.log('✅ Telegram bot started successfully');
+        }).catch(err => {
+            console.error('❌ Failed to start Telegram bot:', err.message);
+            bot = null; // Reset bot to null if failed
+        });
+        
+        // Graceful stop handlers
+        process.once("SIGINT", () => {
+            if (bot) {
+                console.log('Stopping Telegram bot...');
+                bot.stop("SIGINT");
+            }
+        });
+        process.once("SIGTERM", () => {
+            if (bot) {
+                console.log('Stopping Telegram bot...');
+                bot.stop("SIGTERM");
+            }
+        });
+        
+        return bot;
+    } catch (error) {
+        console.error('❌ Failed to initialize Telegram bot:', error.message);
+        return null;
+    }
+}
 
 // Function to generate a unique session ID
 function generateSessionId() {
   return `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
-// Create the keyboard layouts
-const startRecordingKeyboard = Markup.keyboard([
-  [Markup.button.text('🎙️ START RECORDING')],
-]).resize();
+// Function to setup all bot handlers
+function setupBotHandlers() {
+    if (!bot) return;
+    
+    // Create the keyboard layouts
+    const startRecordingKeyboard = Markup.keyboard([
+      [Markup.button.text('🎙️ START RECORDING')],
+    ]).resize();
 
-const activeRecordingKeyboard = Markup.keyboard([
-  [Markup.button.text('⏸️ PAUSE RECORDING'), Markup.button.text('⏹️ STOP RECORDING')],
-]).resize();
+    const activeRecordingKeyboard = Markup.keyboard([
+      [Markup.button.text('⏸️ PAUSE RECORDING'), Markup.button.text('⏹️ STOP RECORDING')],
+    ]).resize();
 
-const pausedRecordingKeyboard = Markup.keyboard([
-  [Markup.button.text('▶️ RESUME RECORDING'), Markup.button.text('⏹️ STOP RECORDING')],
-]).resize();
+    const pausedRecordingKeyboard = Markup.keyboard([
+      [Markup.button.text('▶️ RESUME RECORDING'), Markup.button.text('⏹️ STOP RECORDING')],
+    ]).resize();
 
-// Bot commands
-bot.start((ctx) => {
-  ctx.reply(
-    "Yo! I'm ready whenever you are. Press the button to start recording.", 
-    startRecordingKeyboard
-  );
-});
-
-// Function to handle session recording start
-async function startRecording(ctx) {
-  recordingHasStarted = false; // Temporarily disable recording until we get the title
-  isPaused = false;
-  awaitingSessionTitle = true;
-  currentSessionId = generateSessionId();
-  
-  ctx.reply("Please enter a title for this recording session:");
-}
-
-// Function to finalize session start after getting the title
-async function finalizeSessionStart(ctx, title) {
-  try {
-    await db.saveSession({
-      session_id: currentSessionId,
-      title: title,
-      created_at: new Date().toISOString(),
-      status: 'active'
+    // Bot commands
+    bot.start((ctx) => {
+      ctx.reply(
+        "Yo! I'm ready whenever you are. Press the button to start recording.", 
+        startRecordingKeyboard
+      );
     });
-    
-    recordingHasStarted = true;
-    awaitingSessionTitle = false;
-    
-    ctx.reply(
-      `Recording started!\nSession: "${title}" (${currentSessionId})`,
-      activeRecordingKeyboard
-    );
-  } catch (error) {
-    console.error("Error starting session:", error);
-    ctx.reply("Failed to start recording session. Please try again.", startRecordingKeyboard);
-    recordingHasStarted = false;
-    awaitingSessionTitle = false;
-    currentSessionId = null;
-  }
-}
 
-// Handle the button presses
-bot.hears('🎙️ START RECORDING', (ctx) => {
-  startRecording(ctx);
-});
-
-bot.hears('⏸️ PAUSE RECORDING', async (ctx) => {
-  if (recordingHasStarted && !isPaused) {
-    isPaused = true;
-    
-    // Update session status in database
-    try {
-      const session = await db.getSession(currentSessionId);
-      if (session) {
-        await db.saveSession({
-          ...session,
-          status: 'paused'
-        });
-      }
-    } catch (error) {
-      console.error("Error updating session status:", error);
-    }
-    
-    ctx.reply(`Recording paused. Session is on hold. Press resume to continue recording in this session.`, pausedRecordingKeyboard);
-  }
-});
-
-bot.hears('▶️ RESUME RECORDING', async (ctx) => {
-  if (recordingHasStarted && isPaused) {
-    isPaused = false;
-    
-    // Update session status in database
-    try {
-      const session = await db.getSession(currentSessionId);
-      if (session) {
-        await db.saveSession({
-          ...session,
-          status: 'active'
-        });
-      }
-    } catch (error) {
-      console.error("Error updating session status:", error);
-    }
-    
-    ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
-  }
-});
-
-bot.hears('⏹️ STOP RECORDING', async (ctx) => {
-  if (recordingHasStarted) {
-    // Recupera l'ID sessione corrente prima di reimpostarlo
-    const lastSessionId = currentSessionId;
-    
-    // Aggiorna lo stato della sessione nel database
-    try {
-      if (lastSessionId) {
-        console.log(`Stopping recording for session: ${lastSessionId}`);
-        
-        // Prima verifica la sessione attuale
-        const currentSession = await db.getSession(lastSessionId);
-        console.log(`Current session before stop: ${JSON.stringify(currentSession)}`);
-        
-        // Forza lo stato a 'completed'
-        const updateResult = await db.saveSession({
-          session_id: lastSessionId,
-          status: 'completed'
-        });
-        
-        console.log(`Session updated with result: ${JSON.stringify(updateResult)}`);
-        
-        // Verifica che lo stato sia stato effettivamente aggiornato
-        const updatedSession = await db.getSession(lastSessionId);
-        console.log(`Session after update: ${JSON.stringify(updatedSession)}`);
-        
-        // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
-        if (updatedSession && updatedSession.status !== 'completed') {
-          console.log(`Forcing direct update for session ${lastSessionId}`);
-          await db.run(
-            "UPDATE Sessions SET status = 'completed' WHERE session_id = ?", 
-            [lastSessionId]
-          );
-        }
-        
-        ctx.reply(`Recording stopped. Session completed successfully. Press the button to start a new session.`, startRecordingKeyboard);
-      } else {
-        ctx.reply(`Recording stopped. No active session was found. Press the button to start a new session.`, startRecordingKeyboard);
-      }
-    } catch (error) {
-      console.error("Error updating session status on stop:", error);
-      ctx.reply(`Recording stopped. Note: There was an error updating the session status. Press the button to start a new session.`, startRecordingKeyboard);
-    } finally {
-      // Reimposta sempre le variabili di stato, anche in caso di errore
-      recordingHasStarted = false;
+    // Function to handle session recording start
+    async function startRecording(ctx) {
+      recordingHasStarted = false; // Temporarily disable recording until we get the title
       isPaused = false;
-      currentSessionId = null;
-    }
-  } else {
-    ctx.reply("No active recording to stop.", startRecordingKeyboard);
-  }
-});
-
-// Keep the /record and /stop commands as alternative ways to control recording
-bot.command("record", (ctx) => {
-  startRecording(ctx);
-});
-
-bot.command("pause", async (ctx) => {
-  if (recordingHasStarted && !isPaused) {
-    isPaused = true;
-    
-    // Update session status in database
-    try {
-      const session = await db.getSession(currentSessionId);
-      if (session) {
-        await db.saveSession({
-          ...session,
-          status: 'paused'
-        });
-      }
-    } catch (error) {
-      console.error("Error updating session status:", error);
-    }
-    
-    ctx.reply(`Recording paused. Session is on hold.`, pausedRecordingKeyboard);
-  } else {
-    ctx.reply("No active recording to pause.", startRecordingKeyboard);
-  }
-});
-
-bot.command("resume", async (ctx) => {
-  if (recordingHasStarted && isPaused) {
-    isPaused = false;
-    
-    // Update session status in database
-    try {
-      const session = await db.getSession(currentSessionId);
-      if (session) {
-        await db.saveSession({
-          ...session,
-          status: 'active'
-        });
-      }
-    } catch (error) {
-      console.error("Error updating session status:", error);
-    }
-    
-    ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
-  } else {
-    ctx.reply("No paused recording to resume.", startRecordingKeyboard);
-  }
-});
-
-// Correzione per il gestore di bot.command("stop")
-bot.command("stop", async (ctx) => {
-  if (recordingHasStarted) {
-    // Recupera l'ID sessione corrente prima di reimpostarlo
-    const lastSessionId = currentSessionId;
-    
-    // Aggiorna lo stato della sessione nel database
-    try {
-      if (lastSessionId) {
-        console.log(`Stopping recording via command for session: ${lastSessionId}`);
-        
-        // Prima verifica la sessione attuale
-        const currentSession = await db.getSession(lastSessionId);
-        console.log(`Current session before stop: ${JSON.stringify(currentSession)}`);
-        
-        // Forza lo stato a 'completed'
-        const updateResult = await db.saveSession({
-          session_id: lastSessionId,
-          status: 'completed'
-        });
-        
-        console.log(`Session updated with result: ${JSON.stringify(updateResult)}`);
-        
-        // Verifica che lo stato sia stato effettivamente aggiornato
-        const updatedSession = await db.getSession(lastSessionId);
-        console.log(`Session after update: ${JSON.stringify(updatedSession)}`);
-        
-        // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
-        if (updatedSession && updatedSession.status !== 'completed') {
-          console.log(`Forcing direct update for session ${lastSessionId}`);
-          await db.run(
-            "UPDATE Sessions SET status = 'completed' WHERE session_id = ?", 
-            [lastSessionId]
-          );
-        }
-        
-        ctx.reply(`Recording stopped. Session completed successfully.`, startRecordingKeyboard);
-      } else {
-        ctx.reply(`Recording stopped. No active session was found.`, startRecordingKeyboard);
-      }
-    } catch (error) {
-      console.error("Error updating session status on stop command:", error);
-      ctx.reply(`Recording stopped. Note: There was an error updating the session status.`, startRecordingKeyboard);
-    } finally {
-      // Reimposta sempre le variabili di stato, anche in caso di errore
-      recordingHasStarted = false;
-      isPaused = false;
-      currentSessionId = null;
-    }
-  } else {
-    ctx.reply("No active recording to stop.", startRecordingKeyboard);
-  }
-});
-
-// Handle text messages
-bot.on(message("text"), async (ctx) => {
-  // Check if we're waiting for a session title
-  if (awaitingSessionTitle) {
-    const title = ctx.message.text.trim();
-    
-    // Validate title (e.g., non-empty)
-    if (!title) {
-      ctx.reply("Please enter a valid title for the session:");
-      return;
-    }
-    
-    // Start the session with the provided title
-    await finalizeSessionStart(ctx, title);
-    return;
-  }
-  
-  // Ignore the keyboard button messages
-  if ([
-    '🎙️ START RECORDING', 
-    '⏸️ PAUSE RECORDING', 
-    '▶️ RESUME RECORDING', 
-    '⏹️ STOP RECORDING'
-  ].includes(ctx.message.text)) {
-    return;
-  }
-  
-  if (recordingHasStarted && !isPaused && currentSessionId) {
-    try {
-      // Get session details
-      const session = await db.getSession(currentSessionId);
-      const sessionTitle = session ? session.title : null;
+      awaitingSessionTitle = true;
+      currentSessionId = generateSessionId();
       
-      const msgToSave = {
-        chat_id: ctx.chat.id.toString(),
-        session_id: currentSessionId,
-        session_title: sessionTitle,
-        date: new Date(ctx.message.date * 1000).toISOString(),
-        username: ctx.from.username || "Anonymous",
-        message: ctx.message.text,
-      };
-      
-      // Save the message to the database
-      await db.saveMessage(msgToSave);
-      console.log("Message saved:", msgToSave);
-      
-      // React with eye emoji to the original message
+      ctx.reply("Please enter a title for this recording session:");
+    }
+
+    // Function to finalize session start after getting the title
+    async function finalizeSessionStart(ctx, title) {
       try {
-        await ctx.telegram.setMessageReaction(
-          ctx.chat.id,
-          ctx.message.message_id,
-          [{ type: "emoji", emoji: "👀" }]
+        await db.saveSession({
+          session_id: currentSessionId,
+          title: title,
+          created_at: new Date().toISOString(),
+          status: 'active'
+        });
+        
+        recordingHasStarted = true;
+        awaitingSessionTitle = false;
+        
+        ctx.reply(
+          `Recording started!\nSession: "${title}" (${currentSessionId})`,
+          activeRecordingKeyboard
         );
       } catch (error) {
-        console.error("Error setting reaction:", error);
+        console.error("Error starting session:", error);
+        ctx.reply("Failed to start recording session. Please try again.", startRecordingKeyboard);
+        recordingHasStarted = false;
+        awaitingSessionTitle = false;
+        currentSessionId = null;
       }
-    } catch (error) {
-      console.error("Error processing message:", error);
     }
-  } else if (recordingHasStarted && isPaused) {
-    ctx.reply("Recording is currently paused. Press the resume button to continue recording.", pausedRecordingKeyboard);
-  } else if (!awaitingSessionTitle) {
-    ctx.reply("Recording is not started. Use the button to start recording.", startRecordingKeyboard);
-  }
-});
 
-bot.launch().then(() => {
-  console.log('Telegram bot started successfully');
-}).catch(err => {
-  console.error('Failed to start  bot:', err);
-});
+    // Handle the button presses
+    bot.hears('🎙️ START RECORDING', (ctx) => {
+      startRecording(ctx);
+    });
 
-// Graceful stop
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+    bot.hears('⏸️ PAUSE RECORDING', async (ctx) => {
+      if (recordingHasStarted && !isPaused) {
+        isPaused = true;
+        
+        // Update session status in database
+        try {
+          const session = await db.getSession(currentSessionId);
+          if (session) {
+            await db.saveSession({
+              ...session,
+              status: 'paused'
+            });
+          }
+        } catch (error) {
+          console.error("Error updating session status:", error);
+        }
+        
+        ctx.reply(`Recording paused. Session is on hold. Press resume to continue recording in this session.`, pausedRecordingKeyboard);
+      }
+    });
+
+    bot.hears('▶️ RESUME RECORDING', async (ctx) => {
+      if (recordingHasStarted && isPaused) {
+        isPaused = false;
+        
+        // Update session status in database
+        try {
+          const session = await db.getSession(currentSessionId);
+          if (session) {
+            await db.saveSession({
+              ...session,
+              status: 'active'
+            });
+          }
+        } catch (error) {
+          console.error("Error updating session status:", error);
+        }
+        
+        ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
+      }
+    });
+
+    bot.hears('⏹️ STOP RECORDING', async (ctx) => {
+      if (recordingHasStarted) {
+        // Recupera l'ID sessione corrente prima di reimpostarlo
+        const lastSessionId = currentSessionId;
+        
+        // Aggiorna lo stato della sessione nel database
+        try {
+          if (lastSessionId) {
+            console.log(`Stopping recording for session: ${lastSessionId}`);
+            
+            // Prima verifica la sessione attuale
+            const currentSession = await db.getSession(lastSessionId);
+            console.log(`Current session before stop: ${JSON.stringify(currentSession)}`);
+            
+            // Forza lo stato a 'completed'
+            const updateResult = await db.saveSession({
+              session_id: lastSessionId,
+              status: 'completed'
+            });
+            
+            console.log(`Session updated with result: ${JSON.stringify(updateResult)}`);
+            
+            // Verifica che lo stato sia stato effettivamente aggiornato
+            const updatedSession = await db.getSession(lastSessionId);
+            console.log(`Session after update: ${JSON.stringify(updatedSession)}`);
+            
+            // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
+            if (updatedSession && updatedSession.status !== 'completed') {
+              console.log(`Forcing direct update for session ${lastSessionId}`);
+              await db.run(
+                "UPDATE Sessions SET status = 'completed' WHERE session_id = ?", 
+                [lastSessionId]
+              );
+            }
+            
+            ctx.reply(`Recording stopped. Session completed successfully. Press the button to start a new session.`, startRecordingKeyboard);
+          } else {
+            ctx.reply(`Recording stopped. No active session was found. Press the button to start a new session.`, startRecordingKeyboard);
+          }
+        } catch (error) {
+          console.error("Error updating session status on stop:", error);
+          ctx.reply(`Recording stopped. Note: There was an error updating the session status. Press the button to start a new session.`, startRecordingKeyboard);
+        } finally {
+          // Reimposta sempre le variabili di stato, anche in caso di errore
+          recordingHasStarted = false;
+          isPaused = false;
+          currentSessionId = null;
+        }
+      } else {
+        ctx.reply("No active recording to stop.", startRecordingKeyboard);
+      }
+    });
+
+    // Keep the /record and /stop commands as alternative ways to control recording
+    bot.command("record", (ctx) => {
+      startRecording(ctx);
+    });
+
+    bot.command("pause", async (ctx) => {
+      if (recordingHasStarted && !isPaused) {
+        isPaused = true;
+        
+        // Update session status in database
+        try {
+          const session = await db.getSession(currentSessionId);
+          if (session) {
+            await db.saveSession({
+              ...session,
+              status: 'paused'
+            });
+          }
+        } catch (error) {
+          console.error("Error updating session status:", error);
+        }
+        
+        ctx.reply(`Recording paused. Session is on hold.`, pausedRecordingKeyboard);
+      } else {
+        ctx.reply("No active recording to pause.", startRecordingKeyboard);
+      }
+    });
+
+    bot.command("resume", async (ctx) => {
+      if (recordingHasStarted && isPaused) {
+        isPaused = false;
+        
+        // Update session status in database
+        try {
+          const session = await db.getSession(currentSessionId);
+          if (session) {
+            await db.saveSession({
+              ...session,
+              status: 'active'
+            });
+          }
+        } catch (error) {
+          console.error("Error updating session status:", error);
+        }
+        
+        ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
+      } else {
+        ctx.reply("No paused recording to resume.", startRecordingKeyboard);
+      }
+    });
+
+    // Correzione per il gestore di bot.command("stop")
+    bot.command("stop", async (ctx) => {
+      if (recordingHasStarted) {
+        // Recupera l'ID sessione corrente prima di reimpostarlo
+        const lastSessionId = currentSessionId;
+        
+        // Aggiorna lo stato della sessione nel database
+        try {
+          if (lastSessionId) {
+            console.log(`Stopping recording via command for session: ${lastSessionId}`);
+            
+            // Prima verifica la sessione attuale
+            const currentSession = await db.getSession(lastSessionId);
+            console.log(`Current session before stop: ${JSON.stringify(currentSession)}`);
+            
+            // Forza lo stato a 'completed'
+            const updateResult = await db.saveSession({
+              session_id: lastSessionId,
+              status: 'completed'
+            });
+            
+            console.log(`Session updated with result: ${JSON.stringify(updateResult)}`);
+            
+            // Verifica che lo stato sia stato effettivamente aggiornato
+            const updatedSession = await db.getSession(lastSessionId);
+            console.log(`Session after update: ${JSON.stringify(updatedSession)}`);
+            
+            // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
+            if (updatedSession && updatedSession.status !== 'completed') {
+              console.log(`Forcing direct update for session ${lastSessionId}`);
+              await db.run(
+                "UPDATE Sessions SET status = 'completed' WHERE session_id = ?", 
+                [lastSessionId]
+              );
+            }
+            
+            ctx.reply(`Recording stopped. Session completed successfully.`, startRecordingKeyboard);
+          } else {
+            ctx.reply(`Recording stopped. No active session was found.`, startRecordingKeyboard);
+          }
+        } catch (error) {
+          console.error("Error updating session status on stop command:", error);
+          ctx.reply(`Recording stopped. Note: There was an error updating the session status.`, startRecordingKeyboard);
+        } finally {
+          // Reimposta sempre le variabili di stato, anche in caso di errore
+          recordingHasStarted = false;
+          isPaused = false;
+          currentSessionId = null;
+        }
+      } else {
+        ctx.reply("No active recording to stop.", startRecordingKeyboard);
+      }
+    });
+
+    // Handle text messages
+    bot.on(message("text"), async (ctx) => {
+      // Check if we're waiting for a session title
+      if (awaitingSessionTitle) {
+        const title = ctx.message.text.trim();
+        
+        // Validate title (e.g., non-empty)
+        if (!title) {
+          ctx.reply("Please enter a valid title for the session:");
+          return;
+        }
+        
+        // Start the session with the provided title
+        await finalizeSessionStart(ctx, title);
+        return;
+      }
+      
+      // Ignore the keyboard button messages
+      if ([
+        '🎙️ START RECORDING', 
+        '⏸️ PAUSE RECORDING', 
+        '▶️ RESUME RECORDING', 
+        '⏹️ STOP RECORDING'
+      ].includes(ctx.message.text)) {
+        return;
+      }
+      
+      if (recordingHasStarted && !isPaused && currentSessionId) {
+        try {
+          // Get session details
+          const session = await db.getSession(currentSessionId);
+          const sessionTitle = session ? session.title : null;
+          
+          const msgToSave = {
+            chat_id: ctx.chat.id.toString(),
+            session_id: currentSessionId,
+            session_title: sessionTitle,
+            date: new Date(ctx.message.date * 1000).toISOString(),
+            username: ctx.from.username || "Anonymous",
+            message: ctx.message.text,
+          };
+          
+          // Save the message to the database
+          await db.saveMessage(msgToSave);
+          console.log("Message saved:", msgToSave);
+          
+          // React with eye emoji to the original message
+          try {
+            await ctx.telegram.setMessageReaction(
+              ctx.chat.id,
+              ctx.message.message_id,
+              [{ type: "emoji", emoji: "👀" }]
+            );
+          } catch (error) {
+            console.error("Error setting reaction:", error);
+          }
+        } catch (error) {
+          console.error("Error processing message:", error);
+        }
+      } else if (recordingHasStarted && isPaused) {
+        ctx.reply("Recording is currently paused. Press the resume button to continue recording.", pausedRecordingKeyboard);
+      } else if (!awaitingSessionTitle) {
+        ctx.reply("Recording is not started. Use the button to start recording.", startRecordingKeyboard);
+      }
+    });
+}
 
 // Register handlebars helpers
 handlebars.registerHelper('formatDate', function(dateString) {
@@ -635,9 +681,6 @@ fastify.put("/session/:id/status", async (request, reply) => {
   }
 });
 
-
-// Aggiungi questo endpoint al server.js per correggere manualmente lo stato delle sessioni
-
 // Endpoint per correggere manualmente lo stato di una sessione specifica
 fastify.post("/api/fix-session/:id", async (request, reply) => {
   try {
@@ -746,7 +789,6 @@ fastify.post("/api/fix-all-sessions", async (request, reply) => {
 
 let sessionCheckInterval;
 
-
 // Avvia il server con una migliore inizializzazione
 const start = async () => {
   try {
@@ -770,12 +812,17 @@ const start = async () => {
     await fastify.listen({ port: process.env.PORT || 3000, host: "0.0.0.0" });
     console.log(`Server listening on ${fastify.server.address().port}`);
     
+    // Initialize Telegram bot AFTER server is running
+    initializeTelegramBot();
+    
     // Imposta il controllo periodico delle sessioni
-    const sessionCheckInterval = setInterval(async () => {
+    sessionCheckInterval = setInterval(async () => {
       try {
         if (typeof db.checkAndFixSessionStatuses === 'function') {
           const result = await db.checkAndFixSessionStatuses();
-          console.log(`Periodic session check: checked ${result.checked}, updated ${result.updated}`);
+          if (result.updated > 0) {
+            console.log(`Periodic session check: checked ${result.checked}, updated ${result.updated}`);
+          }
         }
       } catch (err) {
         console.error("Error in periodic session status check:", err);
@@ -787,14 +834,14 @@ const start = async () => {
       console.log("Received SIGINT, stopping server...");
       clearInterval(sessionCheckInterval);
       fastify.close();
-      bot.stop("SIGINT");
+      if (bot) bot.stop("SIGINT");
     });
     
     process.once("SIGTERM", () => {
       console.log("Received SIGTERM, stopping server...");
       clearInterval(sessionCheckInterval);
       fastify.close();
-      bot.stop("SIGTERM");
+      if (bot) bot.stop("SIGTERM");
     });
     
   } catch (err) {

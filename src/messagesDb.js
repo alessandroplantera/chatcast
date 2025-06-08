@@ -368,73 +368,40 @@ async function getAllSessionsWithDetails() {
  * Verifica e corregge lo stato delle sessioni inattive
  * Una sessione è considerata "stale" se è attiva ma non ha messaggi nuovi da più di X ore
  */
+
 async function checkAndFixSessionStatuses() {
+  // Initialize messagesDb if not already done
+  let messagesDb;
+  
   try {
-    console.log("Running session status check...");
-    
-    // Ottieni tutte le sessioni con stato 'active'
-    const activeSessions = await db.all(
-      "SELECT * FROM Sessions WHERE status = 'active'"
-    );
-    
-    if (!activeSessions || activeSessions.length === 0) {
-      console.log("No active sessions to check");
-      return { checked: 0, updated: 0 };
-    }
-    
-    console.log(`Found ${activeSessions.length} active sessions to check`);
-    let updatedCount = 0;
-    
-    // Controllo di ogni sessione attiva
-    for (const session of activeSessions) {
-      // Ottieni l'ultimo messaggio per questa sessione
-      const lastMessage = await db.get(
-        "SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1",
-        [session.session_id]
-      );
+      const sqlite3 = require('sqlite3').verbose();
+      const path = require('path');
       
-      if (!lastMessage) {
-        console.log(`Session ${session.session_id} has no messages. Checking creation time.`);
-        
-        // Se la sessione è stata creata più di 2 ore fa e non ha messaggi, contrassegnala come completata
-        const creationTime = new Date(session.created_at).getTime();
-        const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000); // 2 ore fa
-        
-        if (creationTime < twoHoursAgo) {
-          console.log(`Session ${session.session_id} was created over 2 hours ago with no messages. Marking as completed.`);
-          
-          await db.run(
-            "UPDATE Sessions SET status = 'completed' WHERE session_id = ?",
-            [session.session_id]
-          );
-          
-          updatedCount++;
-        }
-        
-        continue;
-      }
+      // Try to connect to the database
+      const dbPath = path.join(__dirname, '../data/messages.db');
+      messagesDb = new sqlite3.Database(dbPath);
       
-      // Controlla l'ultima attività
-      const lastActivityTime = new Date(lastMessage.date).getTime();
-      const oneHourAgo = Date.now() - (1 * 60 * 60 * 1000); // 1 ora fa
+      console.log('✅ Connected to messages database for session check');
       
-      if (lastActivityTime < oneHourAgo) {
-        console.log(`Session ${session.session_id} has been inactive for over 1 hour. Marking as completed.`);
-        
-        await db.run(
-          "UPDATE Sessions SET status = 'completed' WHERE session_id = ?",
-          [session.session_id]
-        );
-        
-        updatedCount++;
-      }
-    }
-    
-    console.log(`Session status check completed. Updated ${updatedCount} sessions.`);
-    return { checked: activeSessions.length, updated: updatedCount };
+      // Now your existing code can use messagesDb
+      const sessions = await new Promise((resolve, reject) => {
+          messagesDb.all("SELECT * FROM sessions", (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+          });
+      });
+      
+      console.log(`Session status check: found ${sessions.length} sessions`);
+      
+      // Close the connection
+      messagesDb.close();
+      
+      return sessions;
+      
   } catch (error) {
-    console.error("Error checking session statuses:", error);
-    return { checked: 0, updated: 0, error: error.message };
+      console.log('⚠️ Session status check failed:', error.message);
+      if (messagesDb) messagesDb.close();
+      return [];
   }
 }
 
