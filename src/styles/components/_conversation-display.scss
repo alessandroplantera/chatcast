@@ -4,14 +4,14 @@
 @use '../abstracts/variables' as *;
 
 .conversation-display {
-  text-align: center;
-  max-width: 500px;
-  
+  text-align: left;
+  font-family: 'Krona One', Impact, sans-serif;
+
   &__info {
     margin-bottom: spacing(12);
     
     &-date {
-      font-size: font-size(4xl);
+      font-size: font-size(5xl);
       font-weight: font-weight(bold);
       color: color(text-primary);
       margin-bottom: spacing(4);
@@ -19,7 +19,7 @@
     }
     
     &-description {
-      font-size: font-size(xl);
+      font-size: font-size(5xl);
       color: color(text-secondary);
       line-height: map.get($line-heights, relaxed);
       margin-bottom: spacing(2);
@@ -27,38 +27,6 @@
       .highlight {
         color: color(text-primary);
         font-weight: font-weight(medium);
-      }
-    }
-  }
-  
-  &__visual {
-    margin-bottom: spacing(12);
-    
-    &-circle {
-      width: $conversation-bubble-size;
-      height: $conversation-bubble-size;
-      border-radius: 50%;
-      background: radial-gradient(circle at center, color(bubble-bg) 0%, color(bg-primary) 70%);
-      border: 2px solid color(border-primary);
-      margin: 0 auto;
-      position: relative;
-      transition: transform 0.3s ease;
-      
-      &:hover {
-        transform: scale(1.05);
-      }
-      
-      &::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60%;
-        height: 60%;
-        border-radius: 50%;
-        background: color(bg-secondary);
-        opacity: 0.5;
       }
     }
   }

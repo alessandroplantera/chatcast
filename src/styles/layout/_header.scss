@@ -4,12 +4,10 @@
 @use '../abstracts/variables' as *;
 
 .header {
-  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: $header-height;
-  background-color: color(bg-primary);
   border-bottom: 1px solid color(border-primary);
   z-index: map.get($z-index, sticky);
   display: flex;
@@ -38,6 +36,8 @@
       font-size: font-size(lg);
       font-weight: font-weight(bold);
       color: color(primary);
+      font-family: 'Krona One', Impact, sans-serif;
+
     }
   }
   

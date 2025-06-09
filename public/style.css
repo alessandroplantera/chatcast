@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Krona+One&display=swap");
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -140,12 +140,10 @@ body {
 }
 
 .header {
-  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: 4rem;
-  background-color: #000000;
   border-bottom: 1px solid #333333;
   z-index: 1020;
   display: flex;
@@ -172,7 +170,8 @@ body {
 .header__brand-name {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #FF0000;
+  color: #0000ff;
+  font-family: "Krona One", Impact, sans-serif;
 }
 .header__status {
   flex: 1;
@@ -183,7 +182,7 @@ body {
   color: #CCCCCC;
 }
 .header__status-text .status-indicator {
-  color: #FF0000;
+  color: #0000ff;
   font-weight: 500;
 }
 .header__time {
@@ -194,24 +193,26 @@ body {
 }
 
 .main-layout {
-  height: 100vh;
+  height: 96vh;
+  margin: 3vh;
+  border: 1px solid;
   display: flex;
   flex-direction: column;
+  border-radius: 2vh;
 }
 .main-layout__content {
   flex: 1;
   display: flex;
   overflow: hidden;
-  margin-top: 4rem;
 }
 
 .split-panel {
   display: flex;
   height: 100%;
+  width: 100%;
 }
 .split-panel__left {
   width: 50%;
-  background-color: #000000;
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -222,7 +223,6 @@ body {
 }
 .split-panel__right {
   width: 50%;
-  background-color: #000000;
   overflow-y: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
@@ -233,21 +233,21 @@ body {
 }
 
 .conversation-display {
-  text-align: center;
-  max-width: 500px;
+  text-align: left;
+  font-family: "Krona One", Impact, sans-serif;
 }
 .conversation-display__info {
   margin-bottom: 3rem;
 }
 .conversation-display__info-date {
-  font-size: 2.25rem;
+  font-size: 3rem;
   font-weight: 700;
   color: #FFFFFF;
   margin-bottom: 1rem;
   line-height: 1.1;
 }
 .conversation-display__info-description {
-  font-size: 1.25rem;
+  font-size: 3rem;
   color: #CCCCCC;
   line-height: 1.75;
   margin-bottom: 0.5rem;
@@ -256,46 +256,18 @@ body {
   color: #FFFFFF;
   font-weight: 500;
 }
-.conversation-display__visual {
-  margin-bottom: 3rem;
-}
-.conversation-display__visual-circle {
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, #2a2a2a 0%, #000000 70%);
-  border: 2px solid #333333;
-  margin: 0 auto;
-  position: relative;
-  transition: transform 0.3s ease;
-}
-.conversation-display__visual-circle:hover {
-  transform: scale(1.05);
-}
-.conversation-display__visual-circle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60%;
-  height: 60%;
-  border-radius: 50%;
-  background: #111111;
-  opacity: 0.5;
-}
 .conversation-display__cta-title {
   font-size: 1.5rem;
   color: #FFFFFF;
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
-  text-decoration-color: #FF0000;
+  text-decoration-color: #0000ff;
   cursor: pointer;
   transition: color 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .conversation-display__cta-title:hover {
-  color: #FF0000;
+  color: #0000ff;
 }
 
 .conversation-list {
@@ -377,7 +349,7 @@ body {
   animation: pulse 2s infinite;
 }
 .status-indicator--live {
-  color: #FF0000;
+  color: #0000ff;
 }
 .status-indicator--archived {
   color: #999999;

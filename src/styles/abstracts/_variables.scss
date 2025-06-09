@@ -5,8 +5,8 @@
 // Colors - Extracted from your Figma design
 $colors: (
   // Dark theme colors
-  primary: #FF0000,
-  primary-text: #FF3333,
+  primary: #0000ff,
+  primary-text: #0000ff,
   
   // Dark backgrounds
   bg-primary: #000000,
@@ -18,12 +18,12 @@ $colors: (
   text-primary: #FFFFFF,
   text-secondary: #CCCCCC,
   text-muted: #999999,
-  text-placeholder: #666666,
+  text-placeholder: #c37070,
   
   // Border colors
   border-primary: #333333,
   border-light: #222222,
-  border-focus: #FF0000,
+  border-focus: #0000ff,
   
   // Conversation bubble
   bubble-bg: #2a2a2a,
@@ -32,7 +32,7 @@ $colors: (
   // Status colors
   success: #00ff00,
   warning: #ffff00,
-  error: #ff4444,
+  error: #0000ff,
   info: #0099ff,
   
   // Special colors
@@ -49,6 +49,8 @@ $colors: (
 // Typography
 $font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 $font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+$font-family-display: 'Krona One', Impact, 'Arial Black', sans-serif;
+
 
 $font-sizes: (
   xs: 0.75rem,
