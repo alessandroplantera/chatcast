@@ -6,6 +6,12 @@
 .conversation-display {
   text-align: left;
   font-family: 'Krona One', Impact, sans-serif;
+  display: flex;
+flex-direction: column;
+justify-content: space-between;
+align-items: flex-start;
+flex-shrink: 0;
+height: 100%;
 
   &__info {
     margin-bottom: spacing(12);

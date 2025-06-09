@@ -136,7 +136,7 @@ html {
 
 body {
   min-height: 100%;
-  background-color: #000000;
+  background-color: #060a10;
 }
 
 .header {
@@ -149,6 +149,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0 1.5rem;
+  gap: 45px;
 }
 .header__brand {
   display: flex;
@@ -165,24 +166,24 @@ body {
   justify-content: center;
   font-size: 1.125rem;
   font-weight: 700;
-  color: #000000;
+  color: #060a10;
 }
 .header__brand-name {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #0000ff;
+  color: #fff;
   font-family: "Krona One", Impact, sans-serif;
 }
 .header__status {
   flex: 1;
-  text-align: center;
+  text-align: left;
 }
 .header__status-text {
   font-size: 1rem;
   color: #CCCCCC;
 }
 .header__status-text .status-indicator {
-  color: #0000ff;
+  color: #fff;
   font-weight: 500;
 }
 .header__time {
@@ -195,7 +196,8 @@ body {
 .main-layout {
   height: 96vh;
   margin: 3vh;
-  border: 1px solid;
+  border: 1px solid #333333;
+  background-color: #060a10;
   display: flex;
   flex-direction: column;
   border-radius: 2vh;
@@ -220,6 +222,10 @@ body {
   align-items: center;
   border-right: 1px solid #333333;
   position: relative;
+  background-image: url("/graphics/Ellipse 2.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
 }
 .split-panel__right {
   width: 50%;
@@ -235,6 +241,12 @@ body {
 .conversation-display {
   text-align: left;
   font-family: "Krona One", Impact, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+  height: 100%;
 }
 .conversation-display__info {
   margin-bottom: 3rem;
@@ -262,12 +274,12 @@ body {
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
-  text-decoration-color: #0000ff;
+  text-decoration-color: #fff;
   cursor: pointer;
   transition: color 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .conversation-display__cta-title:hover {
-  color: #0000ff;
+  color: #fff;
 }
 
 .conversation-list {
@@ -321,7 +333,7 @@ body {
 }
 .conversation-list__meta-badge {
   background-color: #FFFFFF;
-  color: #000000;
+  color: #060a10;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.875rem;
@@ -349,7 +361,7 @@ body {
   animation: pulse 2s infinite;
 }
 .status-indicator--live {
-  color: #0000ff;
+  color: #fff;
 }
 .status-indicator--archived {
   color: #999999;
@@ -404,7 +416,7 @@ body {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: radial-gradient(circle at center, #2a2a2a 0%, #000000 70%);
+  background: radial-gradient(circle at center, #2a2a2a 0%, #060a10 70%);
   border: 2px solid #333333;
   margin: 0 auto;
   position: relative;
@@ -423,7 +435,7 @@ body {
   width: 60%;
   height: 60%;
   border-radius: 50%;
-  background: #111111;
+  background: #090c11;
   opacity: 0.3;
   z-index: 1;
 }
@@ -474,7 +486,7 @@ body {
 }
 .message-thread__username {
   background-color: #999999;
-  color: #000000;
+  color: #060a10;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.875rem;
@@ -486,7 +498,7 @@ body {
   font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
 }
 .message-thread__content {
-  background-color: #111111;
+  background-color: #090c11;
   padding: 1rem 1.25rem;
   border-radius: 0.75rem;
   color: #FFFFFF;

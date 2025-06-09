@@ -5,7 +5,8 @@
 .main-layout {
   height: 96vh;
   margin: 3vh;
-  border: 1px solid color(order-primary);
+  border: 1px solid color(border-primary);
+  background-color: color(bg-primary);
   display: flex;
   flex-direction: column;
   border-radius: 2vh ;
@@ -31,6 +32,12 @@
     align-items: center;
     border-right: 1px solid color(border-primary);
     position: relative;
+    background-image: url('/graphics/Ellipse 2.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+
+
   }
   
   &__right {
