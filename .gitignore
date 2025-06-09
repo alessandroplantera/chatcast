@@ -1,4 +1,19 @@
 .glitchdotcom.json
 .node-gyp
 node_modules
+
+# Environment variables
 .env
+
+# Database files (Railway will create these)
+data/
+.data/
+
+# Logs
+logs/
+*.log
+
+# Build files
+public/style.css
+public/style.css.map
+" >> .gitignore
