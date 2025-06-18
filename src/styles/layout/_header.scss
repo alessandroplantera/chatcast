@@ -11,7 +11,6 @@
   right: 0;
   height: auto;
   border-bottom: 2px solid color(border-primary);
-  background: color(bg-primary);
   z-index: map.get($z-index, sticky);
   display: flex;
   align-items: center;
