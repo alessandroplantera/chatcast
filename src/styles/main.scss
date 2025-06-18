@@ -7,6 +7,7 @@
 @use 'base/typography';
 @use 'base/base';
 @use 'layout/header';
+@use 'layout/about';
 @use 'layout/main';
 @use 'components/conversation-display';
 @use 'components/conversation-list';
@@ -14,6 +15,7 @@
 @use 'components/conversation-detail';
 @use 'components/message-thread';
 @use 'components/navigation-fab';
+@use 'base/utilities';
 
 // Import Google Fonts after all @use rules
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Krona+One&display=swap');
@@ -29,39 +31,6 @@
   }
 }
 
-// Responsive utilities (using direct media queries instead of mixin)
-@media (max-width: 768px) {
-  .split-panel {
-    flex-direction: column;
-    
-    &__left,
-    &__right {
-      width: 100%;
-    }
-    
-    &__left {
-      border-right: none;
-      border-bottom: 1px solid color(border-primary);
-      padding: spacing(6);
-    }
-  }
-  
-  .conversation-display {
-    &__info-date {
-      font-size: font-size(3xl);
-    }
-    
-    &__visual-circle {
-      width: 200px;
-      height: 200px;
-    }
-  }
-  
-  .header {
-    padding: 0 spacing(4);
-    
-    &__status {
-      display: none;
-    }
-  }
-}
+// Responsive: split-panel via mixin
+@include split-panel-responsive(md);
+@include split-panel-responsive(sm);

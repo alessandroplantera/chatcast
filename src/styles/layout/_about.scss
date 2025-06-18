@@ -1,0 +1,73 @@
+@use 'sass:map';
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as mixins;
+
+.about-page {
+    height: 100%;
+    &__content {
+        @include mixins.container();
+
+        .highlight {
+            color: #000000;
+            font-weight: 500;
+        }
+
+        h1 {
+            @include mixins.fluid-type(4xl, 6xl);
+            margin-bottom: spacing(6);
+            text-align: left;
+        }
+
+        p {
+            @include mixins.fluid-type(base, lg);
+            margin-bottom: spacing(4);
+            color: color(text-secondary);
+            line-height: map.get($line-heights, normal);
+        }
+
+        a>.highlight:hover {
+            color: color(info);
+        }
+
+        ul {
+            list-style: disc inside;
+            margin-bottom: spacing(6);
+
+            li {
+                @include mixins.fluid-type(sm, base);
+                margin-bottom: spacing(2);
+            }
+        }
+    }
+
+    &__image {
+        // @include mixins.container();
+        width: 100%;
+        overflow: hidden;
+
+        img {
+            width: 100%;
+            object-fit: cover;
+            display: block;
+            margin: 0;
+        }
+    }
+
+    @include mixins.breakpoint(md) {
+        .about-page {
+            &__image {
+                width: 100%;
+                height: 100%;
+            }
+        }
+    }
+
+    @include mixins.breakpoint(sm) {
+        .about-page {
+            &__image {
+                width: 100%;
+                height: auto;
+            }
+        }
+    }
+}

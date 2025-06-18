@@ -2,28 +2,33 @@
 
 @use 'sass:map';
 @use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as mixins;
 
 .header {
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  height: $header-height;
-  border-bottom: 1px solid color(border-primary);
+  height: auto;
+  border-bottom: 2px solid color(border-primary);
+  background: color(bg-primary);
   z-index: map.get($z-index, sticky);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 spacing(6);
-  gap: 45px;
+  gap: spacing(4);
   
   &__brand {
     display: flex;
     align-items: center;
     gap: spacing(3);
+    order:1;
     
     &-logo {
       width: 2rem;
       height: 2rem;
-      border-radius: 50%;
+      border-radius: 50% 0;
       background-color: color(text-primary);
       display: flex;
       align-items: center;
@@ -37,7 +42,7 @@
       font-size: font-size(lg);
       font-weight: font-weight(bold);
       color: color(primary);
-      font-family: 'Krona One', Impact, sans-serif;
+      font-family: 'Inter', Arial, sans-serif;
 
     }
   }
@@ -45,6 +50,7 @@
   &__status {
     flex: 1;
     text-align: left;
+    min-width: 40%;
     
     &-text {
       font-size: font-size(base);
@@ -62,5 +68,34 @@
     color: color(text-primary);
     font-weight: font-weight(medium);
     font-family: $font-family-mono;
+    order:2;
+  }
+}
+
+// Override gap a breakpoint MD
+@include mixins.breakpoint(md) {
+  .header {
+    padding: 1rem;
+    gap: spacing(8);
+  }
+}
+
+// Responsive: brand/time in prima riga, status sotto per tablet e inferiori
+@include mixins.breakpoint(sm) {
+  .header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: spacing(6);
+  }
+  .header__brand {
+    order: 1;
+  }
+  .header__time {
+    order: 2;
+    margin-left: auto;
+  }
+  .header__status {
+    order: 3;
+    width: 100%;
   }
 }

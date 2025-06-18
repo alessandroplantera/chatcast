@@ -2,44 +2,48 @@
 
 @use 'sass:map';
 @use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as mixins;
+
 
 .conversation-display {
   text-align: left;
-  font-family: 'Krona One', Impact, sans-serif;
+  font-family: 'Inter', Arial, sans-serif;
   display: flex;
-flex-direction: column;
-justify-content: space-between;
-align-items: flex-start;
-flex-shrink: 0;
-height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+  height: 100%;
 
   &__info {
-    margin-bottom: spacing(12);
-    
+    margin-bottom: spacing(5);
+
     &-date {
-      font-size: font-size(5xl);
+      font-size: font-size(base);
       font-weight: font-weight(bold);
       color: color(text-primary);
       margin-bottom: spacing(4);
       line-height: 1.1;
     }
-    
+
     &-description {
       font-size: font-size(5xl);
       color: color(text-secondary);
-      line-height: map.get($line-heights, relaxed);
+      line-height: map.get($line-heights, tight);
       margin-bottom: spacing(2);
-      
+      a:hover {
+        color:color(info);
+      }
       .highlight {
         color: color(text-primary);
         font-weight: font-weight(medium);
       }
     }
   }
-  
+
   &__cta {
     &-title {
-      font-size: font-size(2xl);
+      font-size: font-size(lg);
       color: color(text-primary);
       font-weight: font-weight(semibold);
       text-decoration: underline;
@@ -47,9 +51,29 @@ height: 100%;
       text-decoration-color: color(primary);
       cursor: pointer;
       transition: color transition();
-      
+
       &:hover {
         color: color(primary);
+      }
+    }
+  }
+}
+@include mixins.breakpoint(sm) {
+  .conversation-display {
+    &__info {
+        margin-bottom: 1rem;
+      &-date {
+        font-size: font-size(sm);
+      }
+
+      &-description {
+        font-size: font-size(lg);
+      }
+    }
+
+    &__cta {
+      &-title {
+        font-size: font-size(base);
       }
     }
   }

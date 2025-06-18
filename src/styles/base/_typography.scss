@@ -2,6 +2,7 @@
 
 @use 'sass:map';
 @use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as mixins;
 
 body {
   font-family: $font-family-primary;
@@ -20,12 +21,12 @@ h1, h2, h3, h4, h5, h6 {
   color: color(text-primary);
 }
 
-h1 { font-size: font-size(4xl); }
-h2 { font-size: font-size(3xl); }
-h3 { font-size: font-size(2xl); }
-h4 { font-size: font-size(xl); }
-h5 { font-size: font-size(lg); }
-h6 { font-size: font-size(base); }
+h1 { @include mixins.fluid-type(3xl, 5xl); }
+h2 { @include mixins.fluid-type(2xl, 4xl); }
+h3 { @include mixins.fluid-type(xl, 3xl); }
+h4 { @include mixins.fluid-type(lg, 2xl); }
+h5 { @include mixins.fluid-type(sm, xl); }
+h6 { @include mixins.fluid-type(base, lg); }
 
 p {
   margin: 0;

@@ -1,76 +1,84 @@
 @use 'sass:map';
 @use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as mixins;
+
 
 .conversation-detail {
-  text-align: center;
-  max-width: 500px;
-  position: relative;
+  text-align: left;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: spacing(1);
+  height: auto;
+  gap:1rem;
+  max-width: 100%;
   
   &__title {
-    font-size: font-size(4xl);
+    font-size: font-size(2xl);
     font-weight: font-weight(bold);
     color: color(text-primary);
-    margin-bottom: spacing(8);
-    line-height: 1.1;
+    max-width: 50%;
+    min-width: 40%;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
     text-align: left;
   }
   
   &__visual {
+    flex: 0 0 auto;
+    height: 100%;
     position: relative;
-    margin-bottom: spacing(8);
-    
+
     &-circle {
-      width: $conversation-bubble-size;
-      height: $conversation-bubble-size;
-      border-radius: 50%;
-      background: radial-gradient(circle at center, color(bubble-bg) 0%, color(bg-primary) 70%);
-      border: 2px solid color(border-primary);
+      width: 100%;
+      height: 100%;
       margin: 0 auto;
       position: relative;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       justify-content: flex-start;
-      padding: spacing(6);
-      
-      &::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60%;
-        height: 60%;
-        border-radius: 50%;
-        background: color(bg-secondary);
-        opacity: 0.3;
-        z-index: 1;
-      }
     }
   }
   
   &__metadata {
-    position: absolute;
+    position: relative;
     top: 0;
     left: 0;
     z-index: 2;
     color: color(text-primary);
-    font-size: font-size(lg);
+    font-size: font-size(sm);
     line-height: 1.6;
     
     &-item {
-      margin-bottom: spacing(4);
+      margin-bottom: spacing(1);
       font-weight: font-weight(medium);
       
       &-label {
         color: color(text-secondary);
-        font-size: font-size(base);
+        font-size: font-size(sm);
       }
       
       &-value {
         color: color(text-primary);
+        font-size: font-size(sm);
         font-weight: font-weight(semibold);
       }
+    }
+  }
+}
+@include mixins.breakpoint(sm) {
+  .conversation-detail {
+    max-width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: start;
+    justify-content: space-between;
+    padding: spacing(4);
+    &__title {
+      font-size: font-size(base);
     }
   }
 }
