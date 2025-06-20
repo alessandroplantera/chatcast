@@ -38,18 +38,15 @@ function getUserInfo(ctx) {
   };
 }
 
-// Improved Telegram bot initialization
+// Clean initializeTelegramBot function - no debug code
 function initializeTelegramBot() {
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 
   if (!telegramToken || process.env.TELEGRAM_DISABLED === "true") {
-    console.log(
-      "🔧 Telegram bot disabled - no token provided or explicitly disabled"
-    );
+    console.log("🔧 Telegram bot disabled - no token provided or explicitly disabled");
     return null;
   }
 
-  // Debug token info
   console.log("🔍 Telegram Debug:");
   console.log("- Token exists:", !!telegramToken);
   console.log("- Token length:", telegramToken?.length);
@@ -72,7 +69,7 @@ function initializeTelegramBot() {
       })
       .catch((err) => {
         console.error("❌ Failed to start Telegram bot:", err.message);
-        bot = null; // Reset bot to null if failed
+        bot = null;
       });
 
     // Graceful stop handlers
@@ -101,16 +98,81 @@ function generateSessionId() {
   return `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
-// Function to setup all bot handlers
-// Function to setup all bot handlers - REPLACE your existing setupBotHandlers function
-// Complete setupBotHandlers function - REPLACE YOUR ENTIRE EXISTING ONE
+// Clean startRecording function
+async function startRecording(ctx) {
+  recordingHasStarted = false;
+  isPaused = false;
+  awaitingSessionTitle = true;
+  currentSessionId = generateSessionId();
+
+  ctx.reply("Please enter a title for this recording session:");
+}
+
+// Clean finalizeSessionStart function
+async function finalizeSessionStart(ctx, title) {
+  try {
+    const sessionData = {
+      session_id: currentSessionId,
+      title: title,
+      created_at: new Date().toISOString(),
+      status: "active",
+    };
+    
+    await db.saveSession(sessionData);
+
+    // Update state variables
+    awaitingSessionTitle = false;
+    recordingHasStarted = true;
+    isPaused = false;
+
+    // Create the keyboard layouts
+    const activeRecordingKeyboard = Markup.keyboard([
+      [
+        Markup.button.text("⏸️ PAUSE RECORDING"),
+        Markup.button.text("⏹️ STOP RECORDING"),
+      ],
+      [Markup.button.text("🔧 ADMIN PANEL")],
+    ]).resize();
+
+    const successMessage = `✅ Recording started!
+
+📝 Session: "${title}"
+🆔 ID: ${currentSessionId}
+🎤 Status: ACTIVE
+
+🗣️ Start chatting and I'll record everything with a 👀 reaction!`;
+
+    ctx.reply(successMessage, activeRecordingKeyboard);
+
+  } catch (error) {
+    console.error("❌ Error in finalizeSessionStart:", error);
+    
+    const startRecordingKeyboard = Markup.keyboard([
+      [Markup.button.text("🎙️ START RECORDING")],
+      [Markup.button.text("🔧 ADMIN PANEL")],
+    ]).resize();
+    
+    ctx.reply(
+      "❌ Failed to start recording session. Please try again.\n\nError: " + error.message,
+      startRecordingKeyboard
+    );
+    
+    // Reset everything on error
+    recordingHasStarted = false;
+    isPaused = false;
+    awaitingSessionTitle = false;
+    currentSessionId = null;
+  }
+}
+
+// Complete clean setupBotHandlers function
 function setupBotHandlers() {
   if (!bot) return;
 
   // Create the keyboard layouts
   const startRecordingKeyboard = Markup.keyboard([
     [Markup.button.text("🎙️ START RECORDING")],
-    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
+    [Markup.button.text("🔧 ADMIN PANEL")],
   ]).resize();
 
   const activeRecordingKeyboard = Markup.keyboard([
@@ -118,7 +180,7 @@ function setupBotHandlers() {
       Markup.button.text("⏸️ PAUSE RECORDING"),
       Markup.button.text("⏹️ STOP RECORDING"),
     ],
-    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
+    [Markup.button.text("🔧 ADMIN PANEL")],
   ]).resize();
 
   const pausedRecordingKeyboard = Markup.keyboard([
@@ -126,10 +188,9 @@ function setupBotHandlers() {
       Markup.button.text("▶️ RESUME RECORDING"),
       Markup.button.text("⏹️ STOP RECORDING"),
     ],
-    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
+    [Markup.button.text("🔧 ADMIN PANEL")],
   ]).resize();
 
-  // Admin keyboard for authorized users
   const adminKeyboard = Markup.keyboard([
     [
       Markup.button.text("📊 DB STATUS"),
@@ -154,62 +215,7 @@ function setupBotHandlers() {
     ctx.reply(welcomeMessage, startRecordingKeyboard);
   });
 
-  // Function to handle session recording start
-  async function startRecording(ctx) {
-    recordingHasStarted = false; // Temporarily disable recording until we get the title
-    isPaused = false;
-    awaitingSessionTitle = true;
-    currentSessionId = generateSessionId();
-
-    ctx.reply("Please enter a title for this recording session:");
-  }
-
-  // Function to finalize session start after getting the title
-  // Replace these two functions in your setupBotHandlers:
-
-// Function to finalize session start after getting the title
-async function finalizeSessionStart(ctx, title) {
-  try {
-    console.log(`Creating session with title: "${title}" and ID: ${currentSessionId}`);
-    
-    await db.saveSession({
-      session_id: currentSessionId,
-      title: title,
-      created_at: new Date().toISOString(),
-      status: "active",
-    });
-
-    // IMPORTANT: Set these in the correct order
-    awaitingSessionTitle = false;  // Stop waiting for title FIRST
-    recordingHasStarted = true;     // Then enable recording
-
-    console.log(`✅ Session started successfully: ${currentSessionId}`);
-    console.log(`Recording state: started=${recordingHasStarted}, paused=${isPaused}, awaiting=${awaitingSessionTitle}`);
-
-    ctx.reply(
-      `✅ Recording started!
-
-📝 Session: "${title}"
-🆔 ID: ${currentSessionId}
-🎤 Status: ACTIVE - Ready to record messages
-
-Start chatting and I'll record everything! 👀`,
-      activeRecordingKeyboard
-    );
-  } catch (error) {
-    console.error("Error starting session:", error);
-    ctx.reply(
-      "❌ Failed to start recording session. Please try again.",
-      startRecordingKeyboard
-    );
-    recordingHasStarted = false;
-    isPaused = false;
-    awaitingSessionTitle = false;
-    currentSessionId = null;
-  }
-}
-
-  // Handle the button presses
+  // Handle button presses
   bot.hears("🎙️ START RECORDING", (ctx) => {
     startRecording(ctx);
   });
@@ -250,8 +256,6 @@ Welcome ${user.username}! Use the buttons below to manage the database:
       return;
     }
     
-    console.log(`📊 Database status requested by admin: ${user.username} (${user.id})`);
-    
     try {
       const fs = require('fs');
       const path = require('path');
@@ -265,20 +269,17 @@ Welcome ${user.username}! Use the buttons below to manage the database:
       const stats = fs.statSync(dbFile);
       const sizeKB = (stats.size / 1024).toFixed(2);
       
-      // Get database counts using your existing db functions
       try {
         const messages = await db.getMessages('all');
         const sessions = await db.getAllSessions();
         const messageCount = messages ? messages.length : 0;
         const sessionCount = sessions ? sessions.length : 0;
         
-        // Get latest session
         let latestSession = null;
         if (sessions && sessions.length > 0) {
-          latestSession = sessions[0]; // Should be sorted by date
+          latestSession = sessions[0];
         }
         
-        // Check backups
         const backupDir = './backups';
         let backupInfo = 'No backups found';
         if (fs.existsSync(backupDir)) {
@@ -311,7 +312,7 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
       }
       
     } catch (error) {
-      console.error(`❌ Database status error (requested by ${user.username}):`, error);
+      console.error(`❌ Database status error:`, error);
       ctx.reply(`❌ Status check failed: ${error.message}`, adminKeyboard);
     }
   });
@@ -324,7 +325,6 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
       return;
     }
     
-    console.log(`🔧 Database backup requested by admin: ${user.username} (${user.id})`);
     ctx.reply('🔄 Starting database backup...');
     
     try {
@@ -335,7 +335,6 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
       const backupDir = './backups';
       const dbFile = './.data/messages.db';
       
-      // Ensure backup directory exists
       if (!fs.existsSync(backupDir)) {
         fs.mkdirSync(backupDir, { recursive: true });
       }
@@ -347,7 +346,6 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
         const stats = fs.statSync(backupPath);
         const sizeKB = (stats.size / 1024).toFixed(2);
         
-        // Get database stats using your existing functions
         try {
           const messages = await db.getMessages('all');
           const sessions = await db.getAllSessions();
@@ -363,10 +361,8 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
 🕐 Backup time: ${new Date().toLocaleString()}`;
           
           ctx.reply(backupMessage, adminKeyboard);
-          console.log(`✅ Database backup completed by ${user.username}: ${backupPath}`);
           
         } catch (dbError) {
-          // If db functions fail, still show basic backup success
           const backupMessage = `✅ Database backup completed!
           
 📁 Backup file: ${path.basename(backupPath)}
@@ -376,16 +372,14 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
 ⚠️ Could not retrieve detailed stats: ${dbError.message}`;
           
           ctx.reply(backupMessage, adminKeyboard);
-          console.log(`✅ Database backup completed by ${user.username}: ${backupPath}`);
         }
         
       } else {
         ctx.reply('❌ Database file not found. Nothing to backup.', adminKeyboard);
-        console.log(`⚠️ Database backup failed - file not found. Requested by ${user.username}`);
       }
       
     } catch (error) {
-      console.error(`❌ Database backup error (requested by ${user.username}):`, error);
+      console.error(`❌ Database backup error:`, error);
       ctx.reply(`❌ Backup failed: ${error.message}`, adminKeyboard);
     }
   });
@@ -398,9 +392,6 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
       return;
     }
     
-    console.log(`⚠️ Database reset requested by admin: ${user.username} (${user.id})`);
-    
-    // Create confirmation keyboard
     const confirmKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('✅ Yes, Reset Database', 'confirm_reset'),
@@ -454,11 +445,11 @@ This action CANNOT be undone!`,
     ctx.reply(helpMessage, adminKeyboard);
   });
 
+  // Recording control buttons
   bot.hears("⏸️ PAUSE RECORDING", async (ctx) => {
     if (recordingHasStarted && !isPaused) {
       isPaused = true;
 
-      // Update session status in database
       try {
         const session = await db.getSession(currentSessionId);
         if (session) {
@@ -482,7 +473,6 @@ This action CANNOT be undone!`,
     if (recordingHasStarted && isPaused) {
       isPaused = false;
 
-      // Update session status in database
       try {
         const session = await db.getSession(currentSessionId);
         if (session) {
@@ -504,35 +494,14 @@ This action CANNOT be undone!`,
 
   bot.hears("⏹️ STOP RECORDING", async (ctx) => {
     if (recordingHasStarted) {
-      // Recupera l'ID sessione corrente prima di reimpostarlo
       const lastSessionId = currentSessionId;
 
-      // Aggiorna lo stato della sessione nel database
       try {
         if (lastSessionId) {
-          console.log(`Stopping recording for session: ${lastSessionId}`);
-
-          // Prima verifica la sessione attuale
-          const currentSession = await db.getSession(lastSessionId);
-          console.log(
-            `Current session before stop: ${JSON.stringify(currentSession)}`
-          );
-
-          // Forza lo stato a 'completed'
           const updateResult = await db.saveSession({
             session_id: lastSessionId,
             status: "completed",
           });
-
-          console.log(
-            `Session updated with result: ${JSON.stringify(updateResult)}`
-          );
-
-          // Verifica che lo stato sia stato effettivamente aggiornato
-          const updatedSession = await db.getSession(lastSessionId);
-          console.log(
-            `Session after update: ${JSON.stringify(updatedSession)}`
-          );
 
           ctx.reply(
             `Recording stopped. Session completed successfully. Press the button to start a new session.`,
@@ -551,17 +520,17 @@ This action CANNOT be undone!`,
           startRecordingKeyboard
         );
       } finally {
-        // Reimposta sempre le variabili di stato, anche in caso di errore
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        awaitingSessionTitle = false;
       }
     } else {
       ctx.reply("No active recording to stop.", startRecordingKeyboard);
     }
   });
 
-  // Keep the /record and /stop commands as alternative ways to control recording
+  // Command alternatives
   bot.command("record", (ctx) => {
     startRecording(ctx);
   });
@@ -569,8 +538,6 @@ This action CANNOT be undone!`,
   bot.command("pause", async (ctx) => {
     if (recordingHasStarted && !isPaused) {
       isPaused = true;
-
-      // Update session status in database
       try {
         const session = await db.getSession(currentSessionId);
         if (session) {
@@ -582,11 +549,7 @@ This action CANNOT be undone!`,
       } catch (error) {
         console.error("Error updating session status:", error);
       }
-
-      ctx.reply(
-        `Recording paused. Session is on hold.`,
-        pausedRecordingKeyboard
-      );
+      ctx.reply(`Recording paused. Session is on hold.`, pausedRecordingKeyboard);
     } else {
       ctx.reply("No active recording to pause.", startRecordingKeyboard);
     }
@@ -595,8 +558,6 @@ This action CANNOT be undone!`,
   bot.command("resume", async (ctx) => {
     if (recordingHasStarted && isPaused) {
       isPaused = false;
-
-      // Update session status in database
       try {
         const session = await db.getSession(currentSessionId);
         if (session) {
@@ -608,11 +569,7 @@ This action CANNOT be undone!`,
       } catch (error) {
         console.error("Error updating session status:", error);
       }
-
-      ctx.reply(
-        `Recording resumed. Continuing session.`,
-        activeRecordingKeyboard
-      );
+      ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
     } else {
       ctx.reply("No paused recording to resume.", startRecordingKeyboard);
     }
@@ -620,240 +577,155 @@ This action CANNOT be undone!`,
 
   bot.command("stop", async (ctx) => {
     if (recordingHasStarted) {
-      // Recupera l'ID sessione corrente prima di reimpostarlo
       const lastSessionId = currentSessionId;
-
-      // Aggiorna lo stato della sessione nel database
       try {
         if (lastSessionId) {
-          console.log(
-            `Stopping recording via command for session: ${lastSessionId}`
-          );
-
-          // Prima verifica la sessione attuale
-          const currentSession = await db.getSession(lastSessionId);
-          console.log(
-            `Current session before stop: ${JSON.stringify(currentSession)}`
-          );
-
-          // Forza lo stato a 'completed'
-          const updateResult = await db.saveSession({
+          await db.saveSession({
             session_id: lastSessionId,
             status: "completed",
           });
-
-          console.log(
-            `Session updated with result: ${JSON.stringify(updateResult)}`
-          );
-
-          // Verifica che lo stato sia stato effettivamente aggiornato
-          const updatedSession = await db.getSession(lastSessionId);
-          console.log(
-            `Session after update: ${JSON.stringify(updatedSession)}`
-          );
-
-          ctx.reply(
-            `Recording stopped. Session completed successfully.`,
-            startRecordingKeyboard
-          );
+          ctx.reply(`Recording stopped. Session completed successfully.`, startRecordingKeyboard);
         } else {
-          ctx.reply(
-            `Recording stopped. No active session was found.`,
-            startRecordingKeyboard
-          );
+          ctx.reply(`Recording stopped. No active session was found.`, startRecordingKeyboard);
         }
       } catch (error) {
         console.error("Error updating session status on stop command:", error);
-        ctx.reply(
-          `Recording stopped. Note: There was an error updating the session status.`,
-          startRecordingKeyboard
-        );
+        ctx.reply(`Recording stopped. Note: There was an error updating the session status.`, startRecordingKeyboard);
       } finally {
-        // Reimposta sempre le variabili di stato, anche in caso di errore
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        awaitingSessionTitle = false;
       }
     } else {
       ctx.reply("No active recording to stop.", startRecordingKeyboard);
     }
   });
 
-  // Handle text messages - FIXED VERSION
+  // Main text message handler with emoji reactions
   bot.on(message("text"), async (ctx) => {
-    console.log(`📨 Received message: "${ctx.message.text}"`);
-    console.log(`Current state: recording=${recordingHasStarted}, paused=${isPaused}, awaiting=${awaitingSessionTitle}`);
-  
+    const messageText = ctx.message.text;
+    const userName = ctx.from.username || ctx.from.first_name || "Anonymous";
+
     // Check if we're waiting for a session title
-    if (awaitingSessionTitle) {
-      const title = ctx.message.text.trim();
-      console.log(`🏷️ Processing session title: "${title}"`);
-  
-      // Validate title (e.g., non-empty)
+    if (awaitingSessionTitle && currentSessionId) {
+      const title = messageText.trim();
+
       if (!title) {
         ctx.reply("Please enter a valid title for the session:");
         return;
       }
-  
-      // Start the session with the provided title
+
       await finalizeSessionStart(ctx, title);
       return;
     }
-  
-    // Ignore the keyboard button messages
+
+    // Ignore button messages
     const buttonMessages = [
       "🎙️ START RECORDING",
-      "⏸️ PAUSE RECORDING",
+      "⏸️ PAUSE RECORDING", 
       "▶️ RESUME RECORDING",
       "⏹️ STOP RECORDING",
       "🔧 ADMIN PANEL",
       "📊 DB STATUS",
-      "💾 BACKUP DB",
+      "💾 BACKUP DB", 
       "🗑️ RESET DB",
       "❓ ADMIN HELP",
       "⬅️ BACK TO MAIN"
     ];
     
-    if (buttonMessages.includes(ctx.message.text)) {
-      console.log(`🔘 Ignoring button message: ${ctx.message.text}`);
-      return; // Let the button handlers deal with these
+    if (buttonMessages.includes(messageText)) {
+      return;
     }
-  
-    // Handle recording messages
-    if (recordingHasStarted && !isPaused && currentSessionId) {
-      console.log(`💾 Recording message for session: ${currentSessionId}`);
-      
+
+    // Record message if conditions are met
+    if (recordingHasStarted && !isPaused && currentSessionId && !awaitingSessionTitle) {
       try {
-        // Get session details
         const session = await db.getSession(currentSessionId);
         const sessionTitle = session ? session.title : null;
-  
+
         const msgToSave = {
           chat_id: ctx.chat.id.toString(),
           session_id: currentSessionId,
           session_title: sessionTitle,
           date: new Date(ctx.message.date * 1000).toISOString(),
-          username: ctx.from.username || "Anonymous",
-          message: ctx.message.text,
+          username: userName,
+          message: messageText,
         };
-  
-        // Save the message to the database
+
         await db.saveMessage(msgToSave);
-        console.log("✅ Message saved successfully:", {
-          session: currentSessionId,
-          user: msgToSave.username,
-          message: msgToSave.message.substring(0, 50) + "..."
-        });
-  
-        // React with eye emoji to the original message
-        try {
-          await ctx.telegram.setMessageReaction(
-            ctx.chat.id,
-            ctx.message.message_id,
-            [{ type: "emoji", emoji: "👀" }]
-          );
-        } catch (error) {
-          console.error("Error setting reaction:", error);
-        }
+
+        // React with eye emoji
+        await ctx.telegram.setMessageReaction(
+          ctx.chat.id,
+          ctx.message.message_id,
+          [{ type: "emoji", emoji: "👀" }]
+        );
+
       } catch (error) {
         console.error("❌ Error processing message:", error);
       }
+      
     } else if (recordingHasStarted && isPaused) {
-      console.log(`⏸️ Message received but recording is paused`);
       ctx.reply(
         "Recording is currently paused. Press the resume button to continue recording.",
         pausedRecordingKeyboard
       );
-    } else {
-      // Log why message wasn't recorded
-      console.log(`❌ Message not recorded. State: recording=${recordingHasStarted}, paused=${isPaused}, session=${currentSessionId}`);
       
-      // Optional: Give user feedback if they seem to be trying to chat
-      if (!awaitingSessionTitle && ctx.message.text.length > 3) {
-        ctx.reply(
-          "🎙️ Recording is not active. Press 'START RECORDING' to begin a new session.",
-          startRecordingKeyboard
-        );
-      }
+    } else if (messageText.length > 3 && !awaitingSessionTitle) {
+      ctx.reply(
+        "🎙️ Recording is not active. Press 'START RECORDING' to begin a new session.",
+        startRecordingKeyboard
+      );
     }
   });
 
-  // ===== ADMIN COMMANDS (keep these for backwards compatibility) =====
-
-  // Database backup command
+  // Admin command alternatives
   bot.command('dbbackup', async (ctx) => {
-    // Redirect to button handler
     const user = getUserInfo(ctx);
-    
     if (!isAdminUser(user.id)) {
       ctx.reply('🚫 You are not authorized to perform database operations.');
       return;
     }
-    
-    // Trigger the backup function directly
     bot.handleUpdate({
       ...ctx.update,
-      message: {
-        ...ctx.message,
-        text: "💾 BACKUP DB"
-      }
+      message: { ...ctx.message, text: "💾 BACKUP DB" }
     });
   });
 
-  // Database reset command
   bot.command('dbreset', async (ctx) => {
     const user = getUserInfo(ctx);
-    
     if (!isAdminUser(user.id)) {
       ctx.reply('🚫 You are not authorized to perform database operations.');
       return;
     }
-    
-    // Trigger the reset function directly
     bot.handleUpdate({
       ...ctx.update,
-      message: {
-        ...ctx.message,
-        text: "🗑️ RESET DB"
-      }
+      message: { ...ctx.message, text: "🗑️ RESET DB" }
     });
   });
 
-  // Database status command
   bot.command('dbstatus', async (ctx) => {
     const user = getUserInfo(ctx);
-    
     if (!isAdminUser(user.id)) {
       ctx.reply('🚫 You are not authorized to view database information.');
       return;
     }
-    
-    // Trigger the status function directly
     bot.handleUpdate({
       ...ctx.update,
-      message: {
-        ...ctx.message,
-        text: "📊 DB STATUS"
-      }
+      message: { ...ctx.message, text: "📊 DB STATUS" }
     });
   });
 
-  // Admin help command
   bot.command('dbhelp', async (ctx) => {
     const user = getUserInfo(ctx);
-    
     if (!isAdminUser(user.id)) {
       ctx.reply('🚫 You are not authorized to view admin commands.');
       return;
     }
-    
-    // Trigger the help function directly
     bot.handleUpdate({
       ...ctx.update,
-      message: {
-        ...ctx.message,
-        text: "❓ ADMIN HELP"
-      }
+      message: { ...ctx.message, text: "❓ ADMIN HELP" }
     });
   });
 
@@ -866,13 +738,10 @@ This action CANNOT be undone!`,
       return;
     }
     
-    console.log(`🗑️ Database reset confirmed by admin: ${user.username} (${user.id})`);
-    
     try {
       await ctx.answerCbQuery();
       await ctx.editMessageText('🔄 Resetting database... Please wait...');
       
-      // First create a backup
       const fs = require('fs');
       const path = require('path');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -888,10 +757,8 @@ This action CANNOT be undone!`,
         const backupPath = path.join(backupDir, `messages.db.${timestamp}.backup`);
         fs.copyFileSync(dbFile, backupPath);
         backupCreated = true;
-        console.log(`📁 Auto-backup created before reset: ${backupPath}`);
       }
       
-      // Get counts before reset using your existing functions
       let messageCount = 0;
       let sessionCount = 0;
       
@@ -904,7 +771,6 @@ This action CANNOT be undone!`,
         console.log('Could not get counts before reset:', dbError.message);
       }
       
-      // Perform the reset using direct SQLite operations
       await new Promise((resolve, reject) => {
         const sqlite3 = require('sqlite3').verbose();
         const resetDb = new sqlite3.Database(dbFile, (err) => {
@@ -953,47 +819,39 @@ ${backupCreated ? '💾 Automatic backup created before reset' : '⚠️ No back
 🕐 Reset time: ${new Date().toLocaleString()}
 👤 Reset by: ${user.username}
 
-The database is now empty and ready for new recordings.
-
-Use the keyboard below to continue:`;
+The database is now empty and ready for new recordings.`;
       
       await ctx.editMessageText(resetMessage);
       
-      // Show admin keyboard after reset
       setTimeout(() => {
         ctx.reply("Admin Panel:", adminKeyboard);
       }, 1000);
       
-      console.log(`✅ Database reset completed by ${user.username}`);
-      
-      // Reset any active recording state
       recordingHasStarted = false;
       isPaused = false;
       currentSessionId = null;
       awaitingSessionTitle = false;
       
     } catch (error) {
-      console.error(`❌ Database reset error (by ${user.username}):`, error);
+      console.error(`❌ Database reset error:`, error);
       await ctx.editMessageText(`❌ Database reset failed: ${error.message}`);
     }
   });
 
-  // Handle reset cancellation
   bot.action('cancel_reset', async (ctx) => {
     const user = getUserInfo(ctx);
-    console.log(`❌ Database reset cancelled by: ${user.username} (${user.id})`);
     
     await ctx.answerCbQuery('Reset cancelled');
     await ctx.editMessageText('❌ Database reset cancelled. No changes made.');
     
-    // Show admin keyboard after cancellation
     setTimeout(() => {
       ctx.reply("Admin Panel:", adminKeyboard);
     }, 1000);
   });
 
-  console.log('🔧 Database admin commands registered for Telegram bot');
+  console.log('✅ Bot handlers setup complete');
 }
+
 // Register handlebars helpers
 handlebars.registerHelper("formatDate", function (dateString) {
   if (!dateString) return "N/A";
