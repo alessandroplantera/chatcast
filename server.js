@@ -165,33 +165,49 @@ function setupBotHandlers() {
   }
 
   // Function to finalize session start after getting the title
-  async function finalizeSessionStart(ctx, title) {
-    try {
-      await db.saveSession({
-        session_id: currentSessionId,
-        title: title,
-        created_at: new Date().toISOString(),
-        status: "active",
-      });
+  // Replace these two functions in your setupBotHandlers:
 
-      recordingHasStarted = true;
-      awaitingSessionTitle = false;
+// Function to finalize session start after getting the title
+async function finalizeSessionStart(ctx, title) {
+  try {
+    console.log(`Creating session with title: "${title}" and ID: ${currentSessionId}`);
+    
+    await db.saveSession({
+      session_id: currentSessionId,
+      title: title,
+      created_at: new Date().toISOString(),
+      status: "active",
+    });
 
-      ctx.reply(
-        `Recording started!\nSession: "${title}" (${currentSessionId})`,
-        activeRecordingKeyboard
-      );
-    } catch (error) {
-      console.error("Error starting session:", error);
-      ctx.reply(
-        "Failed to start recording session. Please try again.",
-        startRecordingKeyboard
-      );
-      recordingHasStarted = false;
-      awaitingSessionTitle = false;
-      currentSessionId = null;
-    }
+    // IMPORTANT: Set these in the correct order
+    awaitingSessionTitle = false;  // Stop waiting for title FIRST
+    recordingHasStarted = true;     // Then enable recording
+
+    console.log(`✅ Session started successfully: ${currentSessionId}`);
+    console.log(`Recording state: started=${recordingHasStarted}, paused=${isPaused}, awaiting=${awaitingSessionTitle}`);
+
+    ctx.reply(
+      `✅ Recording started!
+
+📝 Session: "${title}"
+🆔 ID: ${currentSessionId}
+🎤 Status: ACTIVE - Ready to record messages
+
+Start chatting and I'll record everything! 👀`,
+      activeRecordingKeyboard
+    );
+  } catch (error) {
+    console.error("Error starting session:", error);
+    ctx.reply(
+      "❌ Failed to start recording session. Please try again.",
+      startRecordingKeyboard
+    );
+    recordingHasStarted = false;
+    isPaused = false;
+    awaitingSessionTitle = false;
+    currentSessionId = null;
   }
+}
 
   // Handle the button presses
   bot.hears("🎙️ START RECORDING", (ctx) => {
@@ -665,21 +681,25 @@ This action CANNOT be undone!`,
 
   // Handle text messages - FIXED VERSION
   bot.on(message("text"), async (ctx) => {
+    console.log(`📨 Received message: "${ctx.message.text}"`);
+    console.log(`Current state: recording=${recordingHasStarted}, paused=${isPaused}, awaiting=${awaitingSessionTitle}`);
+  
     // Check if we're waiting for a session title
     if (awaitingSessionTitle) {
       const title = ctx.message.text.trim();
-
+      console.log(`🏷️ Processing session title: "${title}"`);
+  
       // Validate title (e.g., non-empty)
       if (!title) {
         ctx.reply("Please enter a valid title for the session:");
         return;
       }
-
+  
       // Start the session with the provided title
       await finalizeSessionStart(ctx, title);
       return;
     }
-
+  
     // Ignore the keyboard button messages
     const buttonMessages = [
       "🎙️ START RECORDING",
@@ -695,16 +715,19 @@ This action CANNOT be undone!`,
     ];
     
     if (buttonMessages.includes(ctx.message.text)) {
+      console.log(`🔘 Ignoring button message: ${ctx.message.text}`);
       return; // Let the button handlers deal with these
     }
-
+  
     // Handle recording messages
     if (recordingHasStarted && !isPaused && currentSessionId) {
+      console.log(`💾 Recording message for session: ${currentSessionId}`);
+      
       try {
         // Get session details
         const session = await db.getSession(currentSessionId);
         const sessionTitle = session ? session.title : null;
-
+  
         const msgToSave = {
           chat_id: ctx.chat.id.toString(),
           session_id: currentSessionId,
@@ -713,11 +736,15 @@ This action CANNOT be undone!`,
           username: ctx.from.username || "Anonymous",
           message: ctx.message.text,
         };
-
+  
         // Save the message to the database
         await db.saveMessage(msgToSave);
-        console.log("Message saved:", msgToSave);
-
+        console.log("✅ Message saved successfully:", {
+          session: currentSessionId,
+          user: msgToSave.username,
+          message: msgToSave.message.substring(0, 50) + "..."
+        });
+  
         // React with eye emoji to the original message
         try {
           await ctx.telegram.setMessageReaction(
@@ -729,16 +756,26 @@ This action CANNOT be undone!`,
           console.error("Error setting reaction:", error);
         }
       } catch (error) {
-        console.error("Error processing message:", error);
+        console.error("❌ Error processing message:", error);
       }
     } else if (recordingHasStarted && isPaused) {
+      console.log(`⏸️ Message received but recording is paused`);
       ctx.reply(
         "Recording is currently paused. Press the resume button to continue recording.",
         pausedRecordingKeyboard
       );
+    } else {
+      // Log why message wasn't recorded
+      console.log(`❌ Message not recorded. State: recording=${recordingHasStarted}, paused=${isPaused}, session=${currentSessionId}`);
+      
+      // Optional: Give user feedback if they seem to be trying to chat
+      if (!awaitingSessionTitle && ctx.message.text.length > 3) {
+        ctx.reply(
+          "🎙️ Recording is not active. Press 'START RECORDING' to begin a new session.",
+          startRecordingKeyboard
+        );
+      }
     }
-    // REMOVED: The "recording not started" message that was blocking everything
-    // Now unrecognized messages are simply ignored, allowing commands to work
   });
 
   // ===== ADMIN COMMANDS (keep these for backwards compatibility) =====
