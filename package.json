@@ -3,17 +3,25 @@
   "version": "0.1.1",
   "description": "A conversation recording and archiving platform",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "concurrently \"npm run sass:watch\" \"nodemon server.js\"",
-    "dev:safe": "TELEGRAM_DISABLED=true nodemon server.js",
-    "sass:build": "sass src/styles/main.scss public/style.css --style=compressed",
-    "sass:watch": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
-    "sass:dev": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
-    "build": "npm run sass:build",
-    "init-db": "node init-databases.js",
-    "reset-db": "rm -f data/*.db && npm run init-db"
-  },
+  
+    "scripts": {
+      "start": "node server.js",
+      "dev": "concurrently \"npm run sass:watch\" \"nodemon server.js\"",
+      "dev:safe": "TELEGRAM_DISABLED=true nodemon server.js",
+      "sass:build": "sass src/styles/main.scss public/style.css --style=compressed",
+      "sass:watch": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
+      "sass:dev": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
+      "build": "npm run sass:build",
+      "init-db": "node init-databases.js",
+      "reset-db": "rm -f data/*.db && npm run init-db",
+      
+      "db:backup": "node scripts/db-backup.js",
+      "db:reset": "node scripts/db-reset.js", 
+      "db:status": "node scripts/db-status.js",
+      
+      "deploy": "npm run db:backup && npm run build"
+    },
+  
   "dependencies": {
     "@fastify/cors": "^8.4.0",
     "@fastify/formbody": "^7.4.0",

@@ -17,6 +17,27 @@ let currentSessionId = null; // Track the current recording session
 let awaitingSessionTitle = false; // Track if we're waiting for a session title
 let bot = null; // Initialize as null
 
+// Admin user configuration - Add to your .env file
+const ADMIN_TELEGRAM_USERS = process.env.ADMIN_TELEGRAM_USERS 
+  ? process.env.ADMIN_TELEGRAM_USERS.split(',').map(id => parseInt(id.trim()))
+  : [];
+
+console.log('Admin Telegram users configured:', ADMIN_TELEGRAM_USERS.length);
+
+// Helper function to check if user is admin
+function isAdminUser(userId) {
+  return ADMIN_TELEGRAM_USERS.includes(userId);
+}
+
+// Helper function to get user info for logging
+function getUserInfo(ctx) {
+  return {
+    id: ctx.from.id,
+    username: ctx.from.username || 'unknown',
+    first_name: ctx.from.first_name || 'unknown'
+  };
+}
+
 // Improved Telegram bot initialization
 function initializeTelegramBot() {
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
@@ -81,12 +102,15 @@ function generateSessionId() {
 }
 
 // Function to setup all bot handlers
+// Function to setup all bot handlers - REPLACE your existing setupBotHandlers function
+// Complete setupBotHandlers function - REPLACE YOUR ENTIRE EXISTING ONE
 function setupBotHandlers() {
   if (!bot) return;
 
   // Create the keyboard layouts
   const startRecordingKeyboard = Markup.keyboard([
     [Markup.button.text("🎙️ START RECORDING")],
+    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
   ]).resize();
 
   const activeRecordingKeyboard = Markup.keyboard([
@@ -94,6 +118,7 @@ function setupBotHandlers() {
       Markup.button.text("⏸️ PAUSE RECORDING"),
       Markup.button.text("⏹️ STOP RECORDING"),
     ],
+    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
   ]).resize();
 
   const pausedRecordingKeyboard = Markup.keyboard([
@@ -101,14 +126,32 @@ function setupBotHandlers() {
       Markup.button.text("▶️ RESUME RECORDING"),
       Markup.button.text("⏹️ STOP RECORDING"),
     ],
+    [Markup.button.text("🔧 ADMIN PANEL")], // Add admin button
+  ]).resize();
+
+  // Admin keyboard for authorized users
+  const adminKeyboard = Markup.keyboard([
+    [
+      Markup.button.text("📊 DB STATUS"),
+      Markup.button.text("💾 BACKUP DB"),
+    ],
+    [
+      Markup.button.text("🗑️ RESET DB"),
+      Markup.button.text("❓ ADMIN HELP"),
+    ],
+    [Markup.button.text("⬅️ BACK TO MAIN")],
   ]).resize();
 
   // Bot commands
   bot.start((ctx) => {
-    ctx.reply(
-      "Yo! I'm ready whenever you are. Press the button to start recording.",
-      startRecordingKeyboard
-    );
+    const user = getUserInfo(ctx);
+    let welcomeMessage = "Yo! I'm ready whenever you are. Press the button to start recording.";
+    
+    if (isAdminUser(user.id)) {
+      welcomeMessage += "\n\n🔧 As an admin, you can also access the Admin Panel for database management.";
+    }
+    
+    ctx.reply(welcomeMessage, startRecordingKeyboard);
   });
 
   // Function to handle session recording start
@@ -153,6 +196,246 @@ function setupBotHandlers() {
   // Handle the button presses
   bot.hears("🎙️ START RECORDING", (ctx) => {
     startRecording(ctx);
+  });
+
+  // Admin Panel Access
+  bot.hears("🔧 ADMIN PANEL", async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to access the admin panel.');
+      return;
+    }
+    
+    ctx.reply(
+      `🔧 Admin Panel
+
+Welcome ${user.username}! Use the buttons below to manage the database:
+
+📊 DB STATUS - Check database information
+💾 BACKUP DB - Create database backup
+🗑️ RESET DB - Clear all data (with confirmation)
+❓ ADMIN HELP - Show admin commands
+⬅️ BACK TO MAIN - Return to main menu`,
+      adminKeyboard
+    );
+  });
+
+  bot.hears("⬅️ BACK TO MAIN", (ctx) => {
+    ctx.reply("Returning to main menu...", startRecordingKeyboard);
+  });
+
+  // Admin button handlers
+  bot.hears("📊 DB STATUS", async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to view database information.');
+      return;
+    }
+    
+    console.log(`📊 Database status requested by admin: ${user.username} (${user.id})`);
+    
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const dbFile = './.data/messages.db';
+      
+      if (!fs.existsSync(dbFile)) {
+        ctx.reply('❌ Database file not found. Run the app first to create the database.', adminKeyboard);
+        return;
+      }
+      
+      const stats = fs.statSync(dbFile);
+      const sizeKB = (stats.size / 1024).toFixed(2);
+      
+      // Get database counts using your existing db functions
+      try {
+        const messages = await db.getMessages('all');
+        const sessions = await db.getAllSessions();
+        const messageCount = messages ? messages.length : 0;
+        const sessionCount = sessions ? sessions.length : 0;
+        
+        // Get latest session
+        let latestSession = null;
+        if (sessions && sessions.length > 0) {
+          latestSession = sessions[0]; // Should be sorted by date
+        }
+        
+        // Check backups
+        const backupDir = './backups';
+        let backupInfo = 'No backups found';
+        if (fs.existsSync(backupDir)) {
+          const backups = fs.readdirSync(backupDir).filter(f => f.endsWith('.backup'));
+          if (backups.length > 0) {
+            backupInfo = `${backups.length} backups available`;
+          }
+        }
+        
+        const statusMessage = `📊 Database Status
+
+💾 Database: ${sizeKB} KB
+🕐 Last modified: ${stats.mtime.toLocaleString()}
+
+📈 Content:
+• Messages: ${messageCount}
+• Sessions: ${sessionCount}
+
+${latestSession ? `🔄 Latest Session:
+Title: ${latestSession.title || latestSession.session_id}
+Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
+
+💾 Backups: ${backupInfo}`;
+        
+        ctx.reply(statusMessage, adminKeyboard);
+        
+      } catch (dbError) {
+        console.error('Database query error:', dbError);
+        ctx.reply(`❌ Database query failed: ${dbError.message}`, adminKeyboard);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Database status error (requested by ${user.username}):`, error);
+      ctx.reply(`❌ Status check failed: ${error.message}`, adminKeyboard);
+    }
+  });
+
+  bot.hears("💾 BACKUP DB", async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to perform database operations.');
+      return;
+    }
+    
+    console.log(`🔧 Database backup requested by admin: ${user.username} (${user.id})`);
+    ctx.reply('🔄 Starting database backup...');
+    
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupDir = './backups';
+      const dbFile = './.data/messages.db';
+      
+      // Ensure backup directory exists
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
+      
+      if (fs.existsSync(dbFile)) {
+        const backupPath = path.join(backupDir, `messages.db.${timestamp}.backup`);
+        fs.copyFileSync(dbFile, backupPath);
+        
+        const stats = fs.statSync(backupPath);
+        const sizeKB = (stats.size / 1024).toFixed(2);
+        
+        // Get database stats using your existing functions
+        try {
+          const messages = await db.getMessages('all');
+          const sessions = await db.getAllSessions();
+          const messageCount = messages ? messages.length : 0;
+          const sessionCount = sessions ? sessions.length : 0;
+          
+          const backupMessage = `✅ Database backup completed!
+          
+📁 Backup file: ${path.basename(backupPath)}
+📊 Database size: ${sizeKB} KB
+💬 Messages backed up: ${messageCount}
+📋 Sessions backed up: ${sessionCount}
+🕐 Backup time: ${new Date().toLocaleString()}`;
+          
+          ctx.reply(backupMessage, adminKeyboard);
+          console.log(`✅ Database backup completed by ${user.username}: ${backupPath}`);
+          
+        } catch (dbError) {
+          // If db functions fail, still show basic backup success
+          const backupMessage = `✅ Database backup completed!
+          
+📁 Backup file: ${path.basename(backupPath)}
+📊 Database size: ${sizeKB} KB
+🕐 Backup time: ${new Date().toLocaleString()}
+
+⚠️ Could not retrieve detailed stats: ${dbError.message}`;
+          
+          ctx.reply(backupMessage, adminKeyboard);
+          console.log(`✅ Database backup completed by ${user.username}: ${backupPath}`);
+        }
+        
+      } else {
+        ctx.reply('❌ Database file not found. Nothing to backup.', adminKeyboard);
+        console.log(`⚠️ Database backup failed - file not found. Requested by ${user.username}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Database backup error (requested by ${user.username}):`, error);
+      ctx.reply(`❌ Backup failed: ${error.message}`, adminKeyboard);
+    }
+  });
+
+  bot.hears("🗑️ RESET DB", async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to perform database operations.');
+      return;
+    }
+    
+    console.log(`⚠️ Database reset requested by admin: ${user.username} (${user.id})`);
+    
+    // Create confirmation keyboard
+    const confirmKeyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('✅ Yes, Reset Database', 'confirm_reset'),
+        Markup.button.callback('❌ Cancel', 'cancel_reset')
+      ]
+    ]);
+    
+    ctx.reply(
+      `⚠️ DATABASE RESET WARNING ⚠️
+
+This will permanently delete ALL:
+• Conversation messages
+• Recording sessions  
+• Chat history
+
+Are you absolutely sure you want to proceed?
+
+This action CANNOT be undone!`,
+      confirmKeyboard
+    );
+  });
+
+  bot.hears("❓ ADMIN HELP", async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to view admin commands.');
+      return;
+    }
+    
+    const helpMessage = `🔧 Database Admin Help
+
+🎮 Button Commands:
+📊 DB STATUS - Check database stats
+💾 BACKUP DB - Create backup
+🗑️ RESET DB - Clear all data
+⬅️ BACK TO MAIN - Return to main menu
+
+💬 Text Commands (also available):
+/dbstatus - Check database status
+/dbbackup - Create a backup  
+/dbreset - Reset database
+/dbhelp - Show this help
+
+💡 Tips:
+• Always backup before resetting
+• Reset creates automatic backup
+• Use DB STATUS to monitor database
+• You can use either buttons or commands`;
+    
+    ctx.reply(helpMessage, adminKeyboard);
   });
 
   bot.hears("⏸️ PAUSE RECORDING", async (ctx) => {
@@ -234,15 +517,6 @@ function setupBotHandlers() {
           console.log(
             `Session after update: ${JSON.stringify(updatedSession)}`
           );
-
-          // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
-          if (updatedSession && updatedSession.status !== "completed") {
-            console.log(`Forcing direct update for session ${lastSessionId}`);
-            await db.run(
-              "UPDATE Sessions SET status = 'completed' WHERE session_id = ?",
-              [lastSessionId]
-            );
-          }
 
           ctx.reply(
             `Recording stopped. Session completed successfully. Press the button to start a new session.`,
@@ -328,7 +602,6 @@ function setupBotHandlers() {
     }
   });
 
-  // Correzione per il gestore di bot.command("stop")
   bot.command("stop", async (ctx) => {
     if (recordingHasStarted) {
       // Recupera l'ID sessione corrente prima di reimpostarlo
@@ -363,15 +636,6 @@ function setupBotHandlers() {
             `Session after update: ${JSON.stringify(updatedSession)}`
           );
 
-          // Se la sessione ancora non è marcata come completata, prova ad aggiornare direttamente
-          if (updatedSession && updatedSession.status !== "completed") {
-            console.log(`Forcing direct update for session ${lastSessionId}`);
-            await db.run(
-              "UPDATE Sessions SET status = 'completed' WHERE session_id = ?",
-              [lastSessionId]
-            );
-          }
-
           ctx.reply(
             `Recording stopped. Session completed successfully.`,
             startRecordingKeyboard
@@ -399,7 +663,7 @@ function setupBotHandlers() {
     }
   });
 
-  // Handle text messages
+  // Handle text messages - FIXED VERSION
   bot.on(message("text"), async (ctx) => {
     // Check if we're waiting for a session title
     if (awaitingSessionTitle) {
@@ -417,17 +681,24 @@ function setupBotHandlers() {
     }
 
     // Ignore the keyboard button messages
-    if (
-      [
-        "🎙️ START RECORDING",
-        "⏸️ PAUSE RECORDING",
-        "▶️ RESUME RECORDING",
-        "⏹️ STOP RECORDING",
-      ].includes(ctx.message.text)
-    ) {
-      return;
+    const buttonMessages = [
+      "🎙️ START RECORDING",
+      "⏸️ PAUSE RECORDING",
+      "▶️ RESUME RECORDING",
+      "⏹️ STOP RECORDING",
+      "🔧 ADMIN PANEL",
+      "📊 DB STATUS",
+      "💾 BACKUP DB",
+      "🗑️ RESET DB",
+      "❓ ADMIN HELP",
+      "⬅️ BACK TO MAIN"
+    ];
+    
+    if (buttonMessages.includes(ctx.message.text)) {
+      return; // Let the button handlers deal with these
     }
 
+    // Handle recording messages
     if (recordingHasStarted && !isPaused && currentSessionId) {
       try {
         // Get session details
@@ -465,15 +736,227 @@ function setupBotHandlers() {
         "Recording is currently paused. Press the resume button to continue recording.",
         pausedRecordingKeyboard
       );
-    } else if (!awaitingSessionTitle) {
-      ctx.reply(
-        "Recording is not started. Use the button to start recording.",
-        startRecordingKeyboard
-      );
+    }
+    // REMOVED: The "recording not started" message that was blocking everything
+    // Now unrecognized messages are simply ignored, allowing commands to work
+  });
+
+  // ===== ADMIN COMMANDS (keep these for backwards compatibility) =====
+
+  // Database backup command
+  bot.command('dbbackup', async (ctx) => {
+    // Redirect to button handler
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to perform database operations.');
+      return;
+    }
+    
+    // Trigger the backup function directly
+    bot.handleUpdate({
+      ...ctx.update,
+      message: {
+        ...ctx.message,
+        text: "💾 BACKUP DB"
+      }
+    });
+  });
+
+  // Database reset command
+  bot.command('dbreset', async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to perform database operations.');
+      return;
+    }
+    
+    // Trigger the reset function directly
+    bot.handleUpdate({
+      ...ctx.update,
+      message: {
+        ...ctx.message,
+        text: "🗑️ RESET DB"
+      }
+    });
+  });
+
+  // Database status command
+  bot.command('dbstatus', async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to view database information.');
+      return;
+    }
+    
+    // Trigger the status function directly
+    bot.handleUpdate({
+      ...ctx.update,
+      message: {
+        ...ctx.message,
+        text: "📊 DB STATUS"
+      }
+    });
+  });
+
+  // Admin help command
+  bot.command('dbhelp', async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to view admin commands.');
+      return;
+    }
+    
+    // Trigger the help function directly
+    bot.handleUpdate({
+      ...ctx.update,
+      message: {
+        ...ctx.message,
+        text: "❓ ADMIN HELP"
+      }
+    });
+  });
+
+  // Handle reset confirmation
+  bot.action('confirm_reset', async (ctx) => {
+    const user = getUserInfo(ctx);
+    
+    if (!isAdminUser(user.id)) {
+      ctx.answerCbQuery('🚫 Unauthorized');
+      return;
+    }
+    
+    console.log(`🗑️ Database reset confirmed by admin: ${user.username} (${user.id})`);
+    
+    try {
+      await ctx.answerCbQuery();
+      await ctx.editMessageText('🔄 Resetting database... Please wait...');
+      
+      // First create a backup
+      const fs = require('fs');
+      const path = require('path');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupDir = './backups';
+      const dbFile = './.data/messages.db';
+      
+      let backupCreated = false;
+      if (fs.existsSync(dbFile)) {
+        if (!fs.existsSync(backupDir)) {
+          fs.mkdirSync(backupDir, { recursive: true });
+        }
+        
+        const backupPath = path.join(backupDir, `messages.db.${timestamp}.backup`);
+        fs.copyFileSync(dbFile, backupPath);
+        backupCreated = true;
+        console.log(`📁 Auto-backup created before reset: ${backupPath}`);
+      }
+      
+      // Get counts before reset using your existing functions
+      let messageCount = 0;
+      let sessionCount = 0;
+      
+      try {
+        const messages = await db.getMessages('all');
+        const sessions = await db.getAllSessions();
+        messageCount = messages ? messages.length : 0;
+        sessionCount = sessions ? sessions.length : 0;
+      } catch (dbError) {
+        console.log('Could not get counts before reset:', dbError.message);
+      }
+      
+      // Perform the reset using direct SQLite operations
+      await new Promise((resolve, reject) => {
+        const sqlite3 = require('sqlite3').verbose();
+        const resetDb = new sqlite3.Database(dbFile, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          
+          resetDb.serialize(() => {
+            resetDb.run("DELETE FROM Messages", (err) => {
+              if (err) console.error('Error clearing Messages:', err);
+            });
+            
+            resetDb.run("DELETE FROM Sessions", (err) => {
+              if (err) console.error('Error clearing Sessions:', err);
+            });
+            
+            resetDb.run("DELETE FROM sqlite_sequence WHERE name='Messages'", (err) => {
+              if (err && !err.message.includes('no such table')) {
+                console.error('Error resetting Messages sequence:', err);
+              }
+            });
+            
+            resetDb.run("DELETE FROM sqlite_sequence WHERE name='Sessions'", (err) => {
+              if (err && !err.message.includes('no such table')) {
+                console.error('Error resetting Sessions sequence:', err);
+              }
+            });
+          });
+          
+          resetDb.close((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      });
+      
+      const resetMessage = `🗑️ Database reset completed!
+
+📊 Data cleared:
+• Messages: ${messageCount}
+• Sessions: ${sessionCount}
+
+${backupCreated ? '💾 Automatic backup created before reset' : '⚠️ No backup created (database was empty)'}
+
+🕐 Reset time: ${new Date().toLocaleString()}
+👤 Reset by: ${user.username}
+
+The database is now empty and ready for new recordings.
+
+Use the keyboard below to continue:`;
+      
+      await ctx.editMessageText(resetMessage);
+      
+      // Show admin keyboard after reset
+      setTimeout(() => {
+        ctx.reply("Admin Panel:", adminKeyboard);
+      }, 1000);
+      
+      console.log(`✅ Database reset completed by ${user.username}`);
+      
+      // Reset any active recording state
+      recordingHasStarted = false;
+      isPaused = false;
+      currentSessionId = null;
+      awaitingSessionTitle = false;
+      
+    } catch (error) {
+      console.error(`❌ Database reset error (by ${user.username}):`, error);
+      await ctx.editMessageText(`❌ Database reset failed: ${error.message}`);
     }
   });
-}
 
+  // Handle reset cancellation
+  bot.action('cancel_reset', async (ctx) => {
+    const user = getUserInfo(ctx);
+    console.log(`❌ Database reset cancelled by: ${user.username} (${user.id})`);
+    
+    await ctx.answerCbQuery('Reset cancelled');
+    await ctx.editMessageText('❌ Database reset cancelled. No changes made.');
+    
+    // Show admin keyboard after cancellation
+    setTimeout(() => {
+      ctx.reply("Admin Panel:", adminKeyboard);
+    }, 1000);
+  });
+
+  console.log('🔧 Database admin commands registered for Telegram bot');
+}
 // Register handlebars helpers
 handlebars.registerHelper("formatDate", function (dateString) {
   if (!dateString) return "N/A";
