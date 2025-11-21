@@ -926,6 +926,34 @@ handlebars.registerHelper("groupByUser", function (messages, options) {
   return result;
 });
 
+// Auto-register Handlebars partials from `src/views/partials` (including nested folders)
+try {
+  const partialsDir = path.join(__dirname, "src", "views", "partials");
+
+  function registerPartials(dir, base = "") {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+    entries.forEach((entry) => {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const nextBase = base ? path.join(base, entry.name) : entry.name;
+        registerPartials(fullPath, nextBase);
+      } else if (entry.isFile() && entry.name.endsWith('.hbs')) {
+        const name = path.basename(entry.name, '.hbs');
+        const partialName = base ? path.join(base, name).replace(/\\/g, '/') : name;
+        const content = fs.readFileSync(fullPath, 'utf8');
+        handlebars.registerPartial(partialName, content);
+      }
+    });
+  }
+
+  registerPartials(partialsDir);
+  console.log('✅ Handlebars partials registered from', partialsDir);
+} catch (err) {
+  console.warn('⚠️ Could not auto-register Handlebars partials:', err && err.message ? err.message : err);
+}
+
 // Fastify server setup
 fastify.register(require("@fastify/static"), {
   root: path.join(__dirname, "public"),

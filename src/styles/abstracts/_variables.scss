@@ -1,6 +1,6 @@
 // _variables.scss - Modern design system variables (No deprecation warnings)
-
 @use 'sass:map';
+@import url('https://fonts.cdnfonts.com/css/helvetica-neue-55');
 
 // Colors - Extracted from your Figma design
 $colors: (
@@ -84,10 +84,59 @@ $colors: (
   @return map.get($colors, $name);
 }
 
+// Design tokens imported from JSON (Backgrounds, Chat Status, Chat Entities, Texts)
+$backgrounds: (
+  black: #161616,
+  dark:  #b4b4b4,
+  light: #d3d3d3
+);
+
+$chat-status: (
+  live:     #62ff00,
+  archived: #ff4000
+);
+
+$chat-entities: (
+  guest:          #945aff,
+  guest-on-grey:  #7b34ff
+);
+
+$texts: (
+  body-medium:       #3f3f3f,
+  body-dark:         #161616,
+  body-medium-light: #808080
+);
+
+// Generic token getter
+@function token($collection, $name) {
+  @return map.get($collection, $name);
+}
+
+// Generate CSS custom properties for runtime theming and easy JS overrides
+:root {
+  // export backgrounds
+  @each $k, $v in $backgrounds {
+    --bg-#{$k}: #{$v};
+  }
+
+  // export chat status
+  @each $k, $v in $chat-status {
+    --status-#{$k}: #{$v};
+  }
+
+  // export chat entities
+  @each $k, $v in $chat-entities {
+    --entity-#{$k}: #{$v};
+  }
+
+  // export text colors
+  @each $k, $v in $texts {
+    --text-#{$k}: #{$v};
+  }
+}
+
 // Typography
-$font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-$font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-$font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$font-family-primary: 'Helvetica Neue', sans-serif;
 
 
 // Typography: fluid responsive font sizes using clamp(vw)
