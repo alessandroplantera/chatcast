@@ -49,6 +49,23 @@
 	color: var(--chat-entity-guest);
 }
 
+/* Clickable guest name */
+.js-guest-name {
+	cursor: pointer;
+	transition: opacity .2s ease;
+	
+	&:hover {
+		opacity: .7;
+		text-decoration: underline;
+	}
+}
+
+/* Guest link in banner (purple highlight) */
+.guest-link {
+	color: var(--chat-entity-guest);
+	font-weight: var(--font-weight-medium);
+}
+
 /* Timestamp */
 .timestamp { opacity: .7; font-size: .75rem; }
 

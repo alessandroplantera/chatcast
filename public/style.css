@@ -133,6 +133,22 @@
   color: var(--chat-entity-guest);
 }
 
+/* Clickable guest name */
+.js-guest-name {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.js-guest-name:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+/* Guest link in banner (purple highlight) */
+.guest-link {
+  color: var(--chat-entity-guest);
+  font-weight: var(--font-weight-medium);
+}
+
 /* Timestamp */
 .timestamp {
   opacity: 0.7;
@@ -299,6 +315,34 @@ body {
   --hover-bg: rgba(255,255,255,0.04);
 }
 
+/* Upcoming Chat Banner */
+.upcoming-chat-banner {
+  color: var(--text-body-light);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.upcoming-chat-banner__date {
+  margin: 0;
+  font-size: var(--2xl);
+  color: var(--text-body-light);
+}
+
+.upcoming-chat-banner__participants {
+  margin: 0;
+  font-size: var(--2xl);
+  color: var(--text-body-light);
+}
+
+.upcoming-chat-banner__topic {
+  margin: 0;
+  font-size: var(--3xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-body-light);
+}
+
 .main-layout {
   height: 100vh;
   background-color: var(--bg-black);
@@ -342,6 +386,7 @@ body {
 /* All three visible */
 .layout:not(.is-center-collapsed):not(.is-right-collapsed) {
   grid-template-columns: var(--layout-left-width) 1fr var(--layout-right-width);
+  min-width: 33%;
 }
 
 /* Right column collapsed: remove from flow but keep tab visible */
@@ -388,6 +433,7 @@ body {
 
 .layout__col--center:not([hidden]) {
   opacity: 1;
+  min-width: 35%;
 }
 
 .layout__col--center .message-thread {
@@ -449,6 +495,7 @@ body {
 
 .sidebar.is-collapsed .sidebar-tab {
   pointer-events: auto;
+  padding-inline: 0.21rem;
 }
 
 .sidebar:not(.is-collapsed) {
@@ -471,6 +518,100 @@ body {
   animation: sidebarSlide 0.28s ease;
 }
 
+/* Sidebar Tabs */
+.sidebar__tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-black);
+  min-height: 0.5rem;
+  max-height: 1.5rem;
+}
+
+.sidebar__tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-body-light);
+  font-size: var(--sm);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex: 1; /* Default: take available space */
+}
+
+/* When tabs container has .has-guest, tabs get min-width and compete for space */
+.sidebar__tabs.has-guest .sidebar__tab {
+  flex: 0 0 auto;
+  min-width: 30%;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ABOUT tab fixed at 30% when guest is present */
+.sidebar__tabs.has-guest .sidebar__tab.js-tab-about {
+  min-width: 30%;
+  max-width: 40%;
+}
+
+.js-tab-guest {
+  width: 70%;
+  max-width: 70%;
+  color: var(--text-body-light);
+}
+
+.sidebar__tab:hover {
+  background: var(--hover-bg);
+  color: var(--text-body-light);
+}
+
+/* Active state only applies when there are multiple tabs */
+.sidebar__tabs.has-guest .sidebar__tab.is-active {
+  background: var(--bg-light);
+  color: var(--text-body-dark);
+}
+
+.sidebar__tab[hidden] {
+  display: none;
+}
+
+.sidebar__tab-title.is-active {
+  color: var(--text-body-dark);
+}
+
+.sidebar__tab-close {
+  font-size: var(--xs);
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.sidebar__tab-close:hover {
+  opacity: 1;
+}
+
+.sidebar__close {
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+}
+
+/* Tab content areas */
+.sidebar__tab-content {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  padding: var(--xs);
+}
+
+.sidebar__tab-content.is-active {
+  display: flex;
+}
+
 .sidebar__header {
   display: flex;
   justify-content: space-between;
@@ -490,7 +631,6 @@ body {
 .sidebar__content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--xs);
 }
 
 @keyframes sidebarSlide {
@@ -615,7 +755,7 @@ body {
   /* Expanded sidebar on mobile: slides up */
   .layout:not(.is-right-collapsed) .layout__col--right,
   .sidebar:not(.is-collapsed) {
-    height: 95vh;
+    height: 98vh;
     max-height: 100vh;
   }
   /* Bottom bar tab (replaces vertical sidebar tab) */
@@ -657,16 +797,32 @@ body {
   }
   /* Show tab even when panel is open on mobile */
   .sidebar:not(.is-collapsed) .sidebar-tab {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
+    display: none; /* Hide the bottom bar tab when panel is open - use sidebar__tabs instead */
   }
   /* Panel slides up from bottom */
   .sidebar__panel {
+    height: calc(100vh - var(--3xl));
     max-height: calc(100vh - var(--3xl));
-    overflow-y: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .sidebar__panel[hidden] {
     display: none !important;
+  }
+  /* Tabs header on mobile */
+  .sidebar__tabs {
+    flex-shrink: 0;
+    min-height: var(--3xl);
+  }
+  /* Make sure close button is visible on mobile */
+  .sidebar__close {
+    display: block !important;
+  }
+  /* Tab content fills remaining space */
+  .sidebar__tab-content {
+    flex: 1;
+    overflow-y: auto;
   }
   /* Hide desktop sidebar header on mobile (use tab instead) */
   .sidebar__header {
@@ -788,6 +944,152 @@ body {
 }
 .conversation-list__item:nth-child(even):hover {
   background: var(--hover-bg);
+}
+
+/* Guest Card (Notion CMS content) - now inside tab content */
+.guest-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.guest-card.is-visible {
+  display: flex;
+}
+
+@keyframes guestCardSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.guest-card__body {
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.guest-card__cover {
+  width: 100%;
+}
+.guest-card__cover img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+.guest-card__content {
+  padding: 1rem;
+  font-size: var(--sm);
+  line-height: 1.6;
+  color: var(--text-body-light);
+}
+.guest-card__content p {
+  margin: 0 0 1rem 0;
+}
+.guest-card__content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Guest card social - same style as about__credits */
+.guest-card__social {
+  margin: 0;
+  font-size: var(--sm);
+  color: var(--text-body-light);
+  text-align: right;
+}
+.guest-card__social a {
+  color: var(--text-body-light);
+  text-decoration: none;
+}
+.guest-card__social a:hover {
+  text-decoration: underline;
+}
+
+.guest-card__content h1, .guest-card__content h2, .guest-card__content h3 {
+  margin: 1.5rem 0 0.75rem 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-body-light);
+}
+.guest-card__content h1:first-child, .guest-card__content h2:first-child, .guest-card__content h3:first-child {
+  margin-top: 0;
+}
+.guest-card__content h1 {
+  font-size: var(--xl);
+}
+.guest-card__content h2 {
+  font-size: var(--lg);
+}
+.guest-card__content h3 {
+  font-size: var(--base);
+}
+.guest-card__content a {
+  text-decoration: underline;
+}
+.guest-card__content a:hover {
+  text-decoration: none;
+}
+.guest-card__content blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--chat-entity-guest);
+  font-style: italic;
+  color: var(--text-body-medium-light);
+}
+.guest-card__content code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+.guest-card__content pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.guest-card__content pre code {
+  background: none;
+  padding: 0;
+}
+.guest-card__content figure {
+  margin: 1rem 0;
+}
+.guest-card__content figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+}
+.guest-card__content figure figcaption {
+  margin-top: 0.5rem;
+  font-size: var(--xs);
+  color: var(--text-body-medium-light);
+  text-align: center;
+}
+.guest-card__content .callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+.guest-card__content .callout .callout-icon {
+  font-size: var(--lg);
+}
+.guest-card__content ul, .guest-card__content ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+.guest-card__content li {
+  margin-bottom: 0.5rem;
 }
 
 /* Conversation list organism container (already styled partly in molecules) */

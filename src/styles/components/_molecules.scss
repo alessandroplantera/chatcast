@@ -84,3 +84,166 @@
 		background: var(--hover-bg);
 	}
 }
+
+/* Guest Card (Notion CMS content) - now inside tab content */
+.guest-card {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	overflow: hidden;
+}
+
+.guest-card.is-visible {
+	display: flex;
+}
+
+@keyframes guestCardSlide {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.guest-card__body {
+	padding: 0;
+	overflow-y: auto;
+	flex: 1;
+}
+
+.guest-card__cover {
+	width: 100%;
+	
+	img {
+		width: 100%;
+		height: auto;
+		display: block;
+		object-fit: cover;
+	}
+}
+
+.guest-card__content {
+	padding: 1rem;
+	font-size: var(--sm);
+	line-height: 1.6;
+	color: var(--text-body-light);
+	
+	p {
+		margin: 0 0 1rem 0;
+		
+		&:last-child {
+			margin-bottom: 0;
+		}
+	}
+}
+
+/* Guest card social - same style as about__credits */
+.guest-card__social {
+	margin: 0;
+	font-size: var(--sm);
+	color: var(--text-body-light);
+	text-align: right;
+	
+	a {
+		color: var(--text-body-light);
+		text-decoration: none;
+		
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+.guest-card__content {
+	h1, h2, h3 {
+		margin: 1.5rem 0 .75rem 0;
+		font-weight: var(--font-weight-medium);
+		color: var(--text-body-light);
+		
+		&:first-child {
+			margin-top: 0;
+		}
+	}
+	
+	h1 { font-size: var(--xl); }
+	h2 { font-size: var(--lg); }
+	h3 { font-size: var(--base); }
+	
+	a {
+		text-decoration: underline;
+		
+		&:hover {
+			text-decoration: none;
+		}
+	}
+	
+	blockquote {
+		margin: 1rem 0;
+		padding-left: 1rem;
+		border-left: 3px solid var(--chat-entity-guest);
+		font-style: italic;
+		color: var(--text-body-medium-light);
+	}
+	
+	code {
+		background: rgba(255,255,255,0.1);
+		padding: .125rem .25rem;
+		border-radius: .25rem;
+		font-family: monospace;
+		font-size: .9em;
+	}
+	
+	pre {
+		background: rgba(0,0,0,0.3);
+		padding: 1rem;
+		border-radius: .5rem;
+		overflow-x: auto;
+		
+		code {
+			background: none;
+			padding: 0;
+		}
+	}
+	
+	figure {
+		margin: 1rem 0;
+		
+		img {
+			width: 100%;
+			height: auto;
+			border-radius: .25rem;
+		}
+		
+		figcaption {
+			margin-top: .5rem;
+			font-size: var(--xs);
+			color: var(--text-body-medium-light);
+			text-align: center;
+		}
+	}
+	
+	.callout {
+		display: flex;
+		gap: .75rem;
+		padding: 1rem;
+		background: rgba(255,255,255,0.05);
+		border-radius: .5rem;
+		margin: 1rem 0;
+		
+		.callout-icon {
+			font-size: var(--lg);
+		}
+	}
+	
+	ul, ol {
+		margin: 1rem 0;
+		padding-left: 1.5rem;
+	}
+	
+	li {
+		margin-bottom: .5rem;
+	}
+}

@@ -9,6 +9,8 @@ const fastify = require("fastify")({ logger: false });
 const handlebars = require("handlebars");
 // Import the database functions
 const db = require("./src/messagesDb");
+// Import Notion CMS functions
+const notionCms = require("./src/notionCms");
 
 // Telegram Bot Setup
 let recordingHasStarted = false;
@@ -1300,6 +1302,68 @@ fastify.post("/api/fix-all-sessions", async (request, reply) => {
       error: "Error updating sessions",
       details: err.message,
     });
+  }
+});
+
+// ============================================
+// NOTION CMS API ENDPOINTS
+// ============================================
+
+// Get page content by title (for guests, etc.)
+fastify.get("/api/notion/page/:title", async (request, reply) => {
+  try {
+    const { title } = request.params;
+    if (!title) {
+      return reply.status(400).send({ error: "Title parameter is required" });
+    }
+
+    const pageData = await notionCms.getPageByTitle(decodeURIComponent(title));
+    
+    if (!pageData) {
+      return reply.status(404).send({ error: "Page not found", title });
+    }
+
+    return reply.send(pageData);
+  } catch (err) {
+    console.error("Error fetching Notion page:", err);
+    return reply.status(500).send({ error: "Error fetching page from Notion" });
+  }
+});
+
+// Get upcoming chat info
+fastify.get("/api/notion/upcoming-chat", async (request, reply) => {
+  try {
+    const upcomingChat = await notionCms.getUpcomingChat();
+    
+    if (!upcomingChat) {
+      return reply.send({ found: false, message: "No upcoming chat configured" });
+    }
+
+    return reply.send({ found: true, ...upcomingChat });
+  } catch (err) {
+    console.error("Error fetching upcoming chat:", err);
+    return reply.status(500).send({ error: "Error fetching upcoming chat" });
+  }
+});
+
+// List all pages (for debugging/admin)
+fastify.get("/api/notion/pages", async (request, reply) => {
+  try {
+    const pages = await notionCms.getAllPages();
+    return reply.send({ count: pages.length, pages });
+  } catch (err) {
+    console.error("Error fetching all Notion pages:", err);
+    return reply.status(500).send({ error: "Error fetching pages" });
+  }
+});
+
+// Clear Notion cache (force refresh)
+fastify.post("/api/notion/clear-cache", async (request, reply) => {
+  try {
+    notionCms.clearCache();
+    return reply.send({ success: true, message: "Notion cache cleared" });
+  } catch (err) {
+    return reply.status(500).send({ error: "Error clearing cache" });
   }
 });
 

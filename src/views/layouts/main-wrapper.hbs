@@ -2,12 +2,10 @@
 	<div class="layout js-layout is-center-collapsed is-right-collapsed" id="app-layout">
 		<!-- Left column: chat list (always visible) -->
 		<section class="layout__col layout__col--left" id="col-left" aria-labelledby="left-label">
-			<div class="upcoming-chat-banner">
-				{{#if upcomingChat}}
-					<p>TBD ON NOTION {{formatDate upcomingChat.date}} at {{formatTime upcomingChat.date}}</p>
-				{{else}}
-					<p>No Upcoming Chats Scheduled</p>
-				{{/if}}
+			<div class="upcoming-chat-banner" id="upcoming-chat-banner">
+				<p class="upcoming-chat-banner__date" id="upcoming-chat-date"></p>
+				<p class="upcoming-chat-banner__participants" id="upcoming-chat-participants">Loading...</p>
+				<p class="upcoming-chat-banner__topic" id="upcoming-chat-topic"></p>
 			</div>
 			{{> components/organisms/chat-list }}
 		</section>
@@ -35,12 +33,36 @@
 			</button>
 			<!-- Expanded panel (hidden when collapsed) -->
 			<div class="sidebar__panel" id="sidebar-panel" hidden>
-				<header class="sidebar__header">
-					<h2 class="sidebar__title">ABOUT</h2>
-					<button class="icon-btn js-sidebar-close" aria-controls="col-right" aria-label="Close About panel">[-]</button>
+				<!-- Tabs header -->
+				<header class="sidebar__tabs">
+					<button class="sidebar__tab js-tab-about" id="sidebar-tab-about">ABOUT
+						<span class="icon-btn sidebar__close js-sidebar-close" aria-controls="col-right" aria-label="Close panel">[-]</span>
+					</button>
+					<button class="sidebar__tab js-tab-guest" id="sidebar-tab-guest" hidden>
+						<span class="sidebar__tab-title" id="guest-tab-title">GUEST</span>
+						<span class="sidebar__tab-close js-guest-card-close">[x]</span>
+					</button>
 				</header>
-				<div id="sidebar-root" class="sidebar__content">
-					{{> components/organisms/sidebar }}
+				
+				<!-- Tab content: ABOUT -->
+				<div class="sidebar__tab-content is-active" id="sidebar-content-about">
+					<div class="sidebar__content">
+						{{> components/organisms/sidebar }}
+					</div>
+				</div>
+				
+				<!-- Tab content: GUEST (from Notion CMS) -->
+				<div class="sidebar__tab-content" id="sidebar-content-guest">
+					<article class="guest-card is-visible" id="guest-card">
+						<div class="guest-card__body">
+							<div class="guest-card__cover" id="guest-card-cover"></div>
+							<div class="guest-card__content" id="guest-card-content">
+								<!-- Content from Notion will be injected here -->
+							</div>
+						</div>
+					</article>
+					<!-- Hidden title for JS -->
+					<span hidden id="guest-card-title"></span>
 				</div>
 			</div>
 		</section>

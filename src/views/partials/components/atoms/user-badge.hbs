@@ -3,6 +3,6 @@
   Usage: {{> components/atoms/user-badge name="Username" guest=true }}
   
   @param name - The username to display
-  @param guest - Boolean, if true applies guest styling
+  @param guest - Boolean, if true applies guest styling (clickable to show guest info)
 --}}
-<span class="user-badge{{#if guest}} user__guest{{/if}}">{{#if guest}}&lt;{{name}}&gt;{{else}}{{name}}{{/if}}</span>
+<span class="user-badge{{#if guest}} user__guest js-guest-name{{/if}}"{{#if guest}} data-guest-name="{{name}}"{{/if}}>{{#if guest}}&lt;{{name}}&gt;{{else}}{{name}}{{/if}}</span>
