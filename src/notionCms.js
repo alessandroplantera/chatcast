@@ -6,7 +6,7 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN
 });
 
-const DATABASE_ID = process.env.NOTION_DATABASE_ID || '2b9145315011805b98bcd499d64144af';
+const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 
 // Simple in-memory cache (15 minutes TTL)
 const cache = new Map();
