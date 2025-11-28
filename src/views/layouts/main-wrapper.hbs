@@ -1,0 +1,42 @@
+<main class="main-layout">
+	<div class="layout js-layout is-center-collapsed is-right-collapsed" id="app-layout">
+		<!-- Left column: chat list (always visible) -->
+		<section class="layout__col layout__col--left" id="col-left" aria-labelledby="left-label">
+			<div class="upcoming-chat-banner">
+				{{#if upcomingChat}}
+					<p>TBD ON NOTION {{formatDate upcomingChat.date}} at {{formatTime upcomingChat.date}}</p>
+				{{else}}
+					<p>No Upcoming Chats Scheduled</p>
+				{{/if}}
+			</div>
+			{{> components/organisms/chat-list }}
+		</section>
+
+		<!-- Center column: message thread (hidden until a chat is selected) -->
+		<section class="layout__col layout__col--center" id="col-center" role="region" aria-live="polite" hidden>
+			<header class="thread-header">
+				<button class="icon-btn js-thread-close" aria-controls="col-center" aria-expanded="true" aria-label="Close message thread">[x]</button>
+			</header>
+			<div id="message-thread-root" class="message-thread">
+				{{> components/organisms/message-thread }}
+			</div>
+		</section>
+		<section class="layout__col layout__col--right sidebar is-collapsed" id="col-right" aria-expanded="false">
+			<!-- Collapsed vertical tab (visible only when sidebar is closed) -->
+			<button class="sidebar-tab js-sidebar-open" aria-controls="col-right" aria-label="Open About panel">
+				<span class="sidebar-tab__label">ABOUT</span>
+			</button>
+			<!-- Expanded panel (hidden when collapsed) -->
+			<div class="sidebar__panel" id="sidebar-panel" hidden>
+				<header class="sidebar__header">
+					<button class="icon-btn js-sidebar-close" aria-controls="col-right" aria-label="Close About panel">×</button>
+					<h2 class="sidebar__title">About</h2>
+				</header>
+				<div id="sidebar-root" class="sidebar__content">
+					{{> components/organisms/sidebar }}
+				</div>
+			</div>
+		</section>
+	</div>
+	<script src="/js/layout-toggles.js"></script>
+</main>

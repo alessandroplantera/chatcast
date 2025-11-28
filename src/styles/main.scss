@@ -10,13 +10,10 @@
 @use 'layout/header';
 @use 'layout/about';
 @use 'layout/layout';
-@use 'components/conversation-display';
-@use 'components/conversation-list';
-@use 'components/status-indicator';
-@use 'components/conversation-detail';
-@use 'components/message-thread';
-@use 'components/navigation-fab';
 @use 'base/utilities';
+@use 'components/molecules';
+@use 'components/organisms';
+@use 'layout/main-wrapper';
 
 
 // Utilities - Helper classes
@@ -29,7 +26,7 @@
     height: 0;
   }
 }
-
-// Responsive: split-panel via mixin
-@include split-panel-responsive(md);
-@include split-panel-responsive(sm);
+button {
+  border: none;
+  padding: 0;
+}

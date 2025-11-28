@@ -98,12 +98,17 @@ function generateSessionId() {
   return `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
+// Store the session author temporarily
+let currentSessionAuthor = null;
+
 // Clean startRecording function
 async function startRecording(ctx) {
   recordingHasStarted = false;
   isPaused = false;
   awaitingSessionTitle = true;
   currentSessionId = generateSessionId();
+  // Save the author (who started the recording)
+  currentSessionAuthor = ctx.from.first_name || ctx.from.username || "Anonymous";
 
   ctx.reply("Please enter a title for this recording session:");
 }
@@ -116,6 +121,7 @@ async function finalizeSessionStart(ctx, title) {
       title: title,
       created_at: new Date().toISOString(),
       status: "active",
+      author: currentSessionAuthor,
     };
     
     await db.saveSession(sessionData);
@@ -162,6 +168,7 @@ async function finalizeSessionStart(ctx, title) {
     isPaused = false;
     awaitingSessionTitle = false;
     currentSessionId = null;
+    currentSessionAuthor = null;
   }
 }
 
@@ -523,6 +530,7 @@ This action CANNOT be undone!`,
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        currentSessionAuthor = null;
         awaitingSessionTitle = false;
       }
     } else {
@@ -595,6 +603,7 @@ This action CANNOT be undone!`,
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        currentSessionAuthor = null;
         awaitingSessionTitle = false;
       }
     } else {
@@ -830,6 +839,7 @@ The database is now empty and ready for new recordings.`;
       recordingHasStarted = false;
       isPaused = false;
       currentSessionId = null;
+      currentSessionAuthor = null;
       awaitingSessionTitle = false;
       
     } catch (error) {
@@ -873,6 +883,15 @@ handlebars.registerHelper("truncateText", function (text, length) {
 handlebars.registerHelper("eq", function (a, b) {
   return a === b;
 });
+
+handlebars.registerHelper("ne", function (a, b) {
+  return a !== b;
+});
+
+handlebars.registerHelper("lte", function (a, b) {
+  return a <= b;
+});
+
 
 handlebars.registerHelper("statusIcon", function (status) {
   if (!status) return "fa-circle-question";
@@ -926,9 +945,10 @@ handlebars.registerHelper("groupByUser", function (messages, options) {
   return result;
 });
 
-// Auto-register Handlebars partials from `src/views/partials` (including nested folders)
+// Auto-register Handlebars partials from `src/views/partials` and also `src/views/layouts` (including nested folders)
 try {
   const partialsDir = path.join(__dirname, "src", "views", "partials");
+  const layoutsDir = path.join(__dirname, "src", "views", "layouts");
 
   function registerPartials(dir, base = "") {
     if (!fs.existsSync(dir)) return;
@@ -949,6 +969,7 @@ try {
   }
 
   registerPartials(partialsDir);
+  registerPartials(layoutsDir, 'layouts');
   console.log('✅ Handlebars partials registered from', partialsDir);
 } catch (err) {
   console.warn('⚠️ Could not auto-register Handlebars partials:', err && err.message ? err.message : err);
@@ -1054,11 +1075,15 @@ fastify.get("/messages", async (request, reply) => {
     // If a session ID is provided, prioritize filtering by session
     if (sessionId) {
       const messages = await db.getMessagesBySession(sessionId);
-      return reply.send(messages);
+      const session = await db.getSession(sessionId);
+      return reply.send({
+        author: session?.author || null,
+        messages: messages
+      });
     } else {
       // Otherwise fall back to filtering by chat_id
       const messages = await db.getMessages(chatId);
-      return reply.send(messages);
+      return reply.send({ author: null, messages: messages });
     }
   } catch (err) {
     console.error(err);

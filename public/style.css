@@ -1,18 +1,660 @@
-/* Error: Undefined variable.
- *    ,
- * 69 |     font-family: $font-family-mono;
- *    |                  ^^^^^^^^^^^^^^^^^
- *    '
- *   src/styles/layout/_header.scss 69:18  @use
- *   src/styles/main.scss 10:1             root stylesheet */
-
-body::before {
-  font-family: "Source Code Pro", "SF Mono", Monaco, Inconsolata, "Fira Mono",
-      "Droid Sans Mono", monospace, monospace;
-  white-space: pre;
-  display: block;
-  padding: 1em;
-  margin-bottom: 1em;
-  border-bottom: 2px solid black;
-  content: "Error: Undefined variable.\a    \2577 \a 69 \2502      font-family: $font-family-mono;\a    \2502                   ^^^^^^^^^^^^^^^^^\a    \2575 \a   src/styles/layout/_header.scss 69:18  @use\a   src/styles/main.scss 10:1             root stylesheet";
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("../fonts/HelveticaNeue-Thin-13.woff2") format("woff2");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
 }
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("../fonts/HelveticaNeue-01.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("../fonts/HelveticaNeue-Medium-11.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("../fonts/HelveticaNeue-Bold-02.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("../fonts/HelveticaNeue-CondensedBlack-10.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+/* Export Sass maps and vars as CSS custom properties for use in plain CSS */
+:root {
+  /* Ensure 1rem equals 16px on the root */
+  font-size: 16px;
+  /* Backgrounds */
+  --bg-black: #161616;
+  --bg-dark: #b4b4b4;
+  --bg-light: #d3d3d3;
+  /* Chat status */
+  --chat-status-live: #62ff00;
+  --chat-status-archived: #ff4000;
+  /* Chat entities */
+  --chat-entity-guest: #945aff;
+  --chat-entity-guest-on-grey: #7b34ff;
+  /* Texts */
+  --text-body-medium: #3f3f3f;
+  --text-body-dark: #161616;
+  --text-body-medium-light: #808080;
+  --text-body-light: #f0f0f0;
+  /* Breakpoints */
+  --bp-xs: 480px;
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+  --xs: 0.75rem;
+  --sm: 0.875rem;
+  --base: 1rem;
+  --lg: 1.125rem;
+  --xl: 1.25rem;
+  --2xl: 1.5rem;
+  --3xl: 1.875rem;
+  --4xl: 2.25rem;
+  --5xl: 3rem;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  /* Font weights */
+  --font-weight-thin: 100;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+  /* Primitives */
+  --font-family-primary: Helvetica Neue, Arial, sans-serif;
+}
+
+/* Status indicator (active/live, paused, completed/archived) */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 800;
+  color: var(--text-body-medium);
+}
+
+.status-indicator--active,
+.status-indicator--live {
+  color: var(--chat-status-live) !important;
+}
+
+.status-indicator--paused {
+  color: var(--text-body-medium-light) !important;
+}
+
+.status-indicator--completed,
+.status-indicator--archived {
+  color: var(--chat-status-archived) !important;
+}
+
+/* Generic small badge (numbers) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  color: var(--text-body-medium);
+  border: 1px solid var(--border-color);
+}
+
+/* User chip */
+.user,
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.user__guest {
+  color: var(--chat-entity-guest);
+}
+
+/* Timestamp */
+.timestamp {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+/* Topic title highlight */
+.topic-title {
+  font-weight: 700;
+}
+
+/* Date separator */
+.date-separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.75rem;
+  color: var(--text-body-medium-light);
+  font-size: 0.75rem;
+}
+
+.date-separator::before,
+.date-separator::after {
+  content: "";
+  flex: 1 1 0;
+  height: 1px;
+  background: var(--border-color);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  line-height: 1.15;
+  -webkit-text-size-adjust: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+main {
+  display: block;
+}
+
+hr {
+  box-sizing: content-box;
+  height: 0;
+  overflow: visible;
+}
+
+a {
+  background-color: transparent;
+  text-decoration: none;
+  color: inherit;
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}
+
+button,
+input {
+  overflow: visible;
+}
+
+button,
+select {
+  text-transform: none;
+}
+
+[type=button],
+[type=reset],
+[type=submit],
+button {
+  -webkit-appearance: button;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: var(--font-weight-regular);
+  color: var(--text-body-medium);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--bg-black);
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+}
+
+/* Local design constants (no custom Sass functions used) */
+:root {
+  --border-color: rgba(255,255,255,0.12);
+  --hover-bg: rgba(255,255,255,0.04);
+}
+
+.main-layout {
+  height: 100vh;
+  background-color: var(--bg-black);
+  display: flex;
+  font-size: var(--base);
+  flex-direction: row;
+}
+
+/* Grid container controlling columns visibility */
+.layout {
+  --layout-left-width: 100%;
+  --layout-right-width: auto;
+  display: grid;
+  height: 100%;
+  width: 100%;
+  grid-auto-rows: 100%;
+  gap: 0;
+  transition: grid-template-columns 0.35s ease;
+  /* Default: only left column visible should be full width */
+  grid-template-columns: 1fr;
+}
+
+/* Only left visible */
+.layout.is-center-collapsed.is-right-collapsed {
+  /* Only left visible: take 100% */
+  grid-template-columns: 1fr;
+}
+
+/* Left + Right (no center) */
+.layout.is-center-collapsed:not(.is-right-collapsed) {
+  /* Left + Right (no center): left remains fluid, right fixed */
+  grid-template-columns: 1fr var(--layout-right-width);
+}
+
+/* Left + Center */
+.layout:not(.is-center-collapsed).is-right-collapsed {
+  /* Left + Center: left becomes sidebar width, center fills */
+  grid-template-columns: var(--layout-left-width) 1fr;
+}
+
+/* All three visible */
+.layout:not(.is-center-collapsed):not(.is-right-collapsed) {
+  grid-template-columns: var(--layout-left-width) 1fr var(--layout-right-width);
+}
+
+/* Right column collapsed: remove from flow but keep tab visible */
+.layout.is-right-collapsed .layout__col--right {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.layout.is-right-collapsed .layout__col--right .sidebar-tab {
+  pointer-events: auto;
+}
+
+.layout__col {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-black);
+  border-right: 1px solid var(--border-color);
+}
+
+.layout__col:last-child {
+  border-right: none;
+}
+
+.layout__col--center {
+  border-left: 1px solid var(--border-color);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.layout__col--center[hidden] {
+  display: none !important;
+}
+
+.layout__col--center:not([hidden]) {
+  opacity: 1;
+}
+
+.layout__col--center .message-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.thread-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Sidebar (right column) */
+.sidebar {
+  background: var(--bg-dark);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.sidebar.is-collapsed {
+  /* Remove from layout flow completely; only show the floating tab */
+  position: fixed;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.sidebar.is-collapsed .sidebar-tab {
+  pointer-events: auto;
+}
+
+.sidebar:not(.is-collapsed) {
+  position: relative;
+}
+
+.sidebar__panel {
+  /* When visible, shown via [hidden] toggle; animate slide-in */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  will-change: transform, opacity;
+}
+
+.sidebar__panel[hidden] {
+  display: none !important;
+}
+
+.sidebar__panel:not([hidden]) {
+  animation: sidebarSlide 0.28s ease;
+}
+
+.sidebar__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+@keyframes sidebarSlide {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+/* Vertical tab when collapsed */
+.sidebar-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(25%) rotate(-90deg);
+  transform-origin: center;
+  background: var(--bg-black);
+  color: var(--text-body-light);
+  border: 1px solid var(--bg-dark);
+  border-bottom: none;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* Hide the tab when the panel is open */
+.sidebar:not(.is-collapsed) .sidebar-tab {
+  display: none;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-body-medium);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-color);
+}
+
+/* Conversation list item */
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.conversation-list__item {
+  width: 100%;
+  padding: calc(var(--base) / 4) calc(var(--base) / 2);
+  background: var(--bg-dark);
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.conversation-list__item:hover {
+  background: var(--hover-bg);
+}
+
+/* make .guest turn white on item hover */
+.conversation-list__item:hover .guest {
+  transition: color 0.2s ease;
+}
+.conversation-list__item:hover:hover .conversation-list__header-title {
+  color: var(--text-body-light);
+}
+.conversation-list__item:hover:hover .conversation-list__meta {
+  color: var(--text-body-light);
+}
+.conversation-list__item:hover:hover .conversation-list__meta-badge {
+  color: var(--text-body-light);
+}
+
+.conversation-list__item.is-active {
+  background: var(--bg-black) !important;
+}
+.conversation-list__item.is-active .conversation-list__header-title {
+  color: var(--text-body-light);
+}
+.conversation-list__item.is-active .conversation-list__meta {
+  color: var(--text-body-light);
+}
+
+.conversation-list__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.conversation-list__header-title {
+  color: var(--text-body-dark);
+}
+
+.conversation-list__header-participants {
+  margin-top: var(--spacing-sm);
+  opacity: 0.85;
+}
+
+.conversation-list__header-meta {
+  display: flex;
+  align-items: center;
+}
+
+.conversation-list__meta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-body-medium);
+}
+
+.conversation-list__meta {
+  font-size: var(--sm);
+}
+
+.conversation-list__meta-info {
+  display: inline-flex;
+  align-items: center;
+  padding-top: var(--spacing-xs);
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Message preview molecule (if used) */
+.message-preview {
+  color: var(--text-body-medium);
+}
+
+.message-thread__timestamp {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* Subtle zebra striping echoing design */
+.conversation-list__item:nth-child(even) {
+  background: var(--bg-light);
+}
+.conversation-list__item:nth-child(even):hover {
+  background: var(--hover-bg);
+}
+
+/* Conversation list organism container (already styled partly in molecules) */
+.conversation-list {
+  overflow-y: auto;
+  width: 100%;
+}
+
+/* Message thread */
+.message-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.message-thread__message {
+  padding: 0.75rem 1rem;
+  max-width: 60%;
+  border-radius: 0.5rem;
+  background: var(--bg-dark);
+}
+
+/* Guest messages - left aligned */
+.message-thread__message--guest {
+  align-self: flex-start;
+  background: var(--bg-dark);
+}
+
+/* Host (Serena) messages - right aligned */
+.message-thread__message--host {
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: right;
+}
+
+.message-thread__header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.message-thread__message--host .message-thread__header {
+  justify-content: flex-end;
+}
+
+.message-thread__content {
+  line-height: 1.5;
+}
+
+.message-thread__timestamp {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.message-thread__message--host .message-thread__timestamp {
+  text-align: right;
+}
+
+/* Chat header organism (placeholder styles) */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Sidebar organism overrides */
+.sidebar__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+button {
+  border: none;
+  padding: 0;
+}
+
+/*# sourceMappingURL=style.css.map */

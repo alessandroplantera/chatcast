@@ -1,0 +1,8 @@
+{{!-- 
+  User Badge Atom
+  Usage: {{> components/atoms/user-badge name="Username" guest=true }}
+  
+  @param name - The username to display
+  @param guest - Boolean, if true applies guest styling
+--}}
+<span class="user-badge{{#if guest}} user__guest{{/if}}">{{#if guest}}&lt;{{name}}&gt;{{else}}{{name}}{{/if}}</span>

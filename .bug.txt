@@ -1,0 +1,2 @@
+1. non si rimuove lo stato is-active nei conversation list quando li chiudo
+2. 

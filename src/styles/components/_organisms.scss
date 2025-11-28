@@ -1,0 +1,70 @@
+// components/_organisms.scss - Larger UI structures
+@use '../abstracts/variables' as *;
+
+/* Conversation list organism container (already styled partly in molecules) */
+.conversation-list {
+	overflow-y: auto;
+	width: 100%;
+}
+
+/* Message thread */
+.message-thread {
+	display: flex;
+	flex-direction: column;
+	gap: .75rem;
+	padding: 1rem;
+}
+
+.message-thread__message {
+	padding: .75rem 1rem;
+	max-width: 60%;
+	border-radius: .5rem;
+	background: var(--bg-dark);
+}
+
+/* Guest messages - left aligned */
+.message-thread__message--guest {
+	align-self: flex-start;
+	background: var(--bg-dark);
+}
+
+/* Host (Serena) messages - right aligned */
+.message-thread__message--host {
+	align-self: flex-end;
+	background: rgba(255, 255, 255, 0.08);
+	text-align: right;
+}
+
+.message-thread__header {
+	display: flex;
+	align-items: baseline;
+	gap: .5rem;
+	margin-bottom: .25rem;
+}
+
+.message-thread__message--host .message-thread__header {
+	justify-content: flex-end;
+}
+
+.message-thread__content {
+	line-height: 1.5;
+}
+
+.message-thread__timestamp {
+	font-size: .75rem;
+	opacity: .6;
+	margin-top: .25rem;
+	display: block;
+}
+
+.message-thread__message--host .message-thread__timestamp {
+	text-align: right;
+}
+
+
+
+/* Chat header organism (placeholder styles) */
+.chat-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--border-color); }
+
+/* Sidebar organism overrides */
+.sidebar__title { margin: 0; font-size: 1rem; font-weight: 700; }

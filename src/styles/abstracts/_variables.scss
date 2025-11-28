@@ -1,94 +1,61 @@
 // _variables.scss - Modern design system variables (No deprecation warnings)
 @use 'sass:map';
-@import url('https://fonts.cdnfonts.com/css/helvetica-neue-55');
 
-// Colors - Extracted from your Figma design
-$colors: (
-  // // Dark theme colors
-  // base: #c1c1c1,
-  // primary: #fff,
-  // accent: #0000ff,
-  
-  // // Dark backgrounds
-  // bg-primary: #060a10,
-  // bg-secondary: #090c11,
-  // bg-card: #1a1a1a,
-  // bg-hover: #222222,
-  
-  // // Gray scale for dark theme
-  // text-primary: #FFFFFF,
-  // text-secondary: #CCCCCC,
-  // text-muted: #999999,
-  // text-placeholder: #c37070,
-  
-  // // Border colors
-  // border-primary: #333333,
-  // border-light: #222222,
-  // border-focus: #0000ff,
-  
-  // // Conversation bubble
-  // bubble-bg: #2a2a2a,
-  // bubble-border: #444444,
-  
-  // // Status colors
-  // success: #00ff00,
-  // warning: #ffff00,
-  // error: #0000ff,
-  // info: #0099ff,
-  
-  // // Special colors
-  // white: #ffffff,
-  // black: #000000,
-  // transparent: transparent
-  // Light theme colors
-  // Light theme colors
-  base:          #2e2e2e,    // testo di base
-  primary:       #151515,    // colore principale (titoli, link)
-  accent:        #0000ff,    // colore di accento
-
-  // Light backgrounds
-  bg-primary:    #ffffff,    // sfondo principale
-  bg-secondary:  #f5f5f5,    // sfondo secondario
-  bg-card:       #ffffff,    // sfondo delle card
-  bg-hover:      #e0e0e0,    // hover sugli elementi
-
-  // Gray scale per light theme
-  text-primary:      #000000,  // testo principale
-  text-secondary:    #989aa0,  // testo secondario
-  text-muted:        #666666,  // testo “muted”
-  text-placeholder:  #707070,  // placeholder dei form
-
-  // Border colors
-  border-primary:    #cccccc,  // bordo standard
-  border-light:      #e0e0e0,  // bordo leggero
-  border-focus:      #0000ff,  // bordo in focus
-
-  // Conversation bubble
-  bubble-bg:         #f0f0f0,  // sfondo bolle
-  bubble-border:     #d0d0d0,  // bordo bolle
-
-  // Status colors
-  success: #008000,  // verde più scuro per contrasto
-  warning: #ff9900,  // arancio per visibilità
-  error:   #ff0000,  // rosso standard
-  info:    #0570db,  // blu più scuro
-
-  // Special colors
-  white:       #ffffff,
-  black:       #000000,
-  transparent: transparent
-);
-
-// Color helper function (modernized)
-@function color($name) {
-  @return map.get($colors, $name);
+// Local font imports
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url('../fonts/HelveticaNeue-Thin-13.woff2') format('woff2');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
 }
+
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url('../fonts/HelveticaNeue-01.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url('../fonts/HelveticaNeue-Medium-11.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url('../fonts/HelveticaNeue-Bold-02.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url('../fonts/HelveticaNeue-CondensedBlack-10.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Font weights
+$font-weights: (
+  thin: 100,
+  regular: 400,
+  medium: 500,
+  bold: 700,
+  black: 900
+);
 
 // Design tokens imported from JSON (Backgrounds, Chat Status, Chat Entities, Texts)
 $backgrounds: (
-  black: #161616,
-  dark:  #b4b4b4,
-  light: #d3d3d3
+	"black": #161616,
+	"dark":  #b4b4b4,
+	"light": #d3d3d3
 );
 
 $chat-status: (
@@ -104,99 +71,10 @@ $chat-entities: (
 $texts: (
   body-medium:       #3f3f3f,
   body-dark:         #161616,
-  body-medium-light: #808080
+  body-medium-light: #808080,
+  body-light:        #f0f0f0
 );
 
-// Generic token getter
-@function token($collection, $name) {
-  @return map.get($collection, $name);
-}
-
-// Generate CSS custom properties for runtime theming and easy JS overrides
-:root {
-  // export backgrounds
-  @each $k, $v in $backgrounds {
-    --bg-#{$k}: #{$v};
-  }
-
-  // export chat status
-  @each $k, $v in $chat-status {
-    --status-#{$k}: #{$v};
-  }
-
-  // export chat entities
-  @each $k, $v in $chat-entities {
-    --entity-#{$k}: #{$v};
-  }
-
-  // export text colors
-  @each $k, $v in $texts {
-    --text-#{$k}: #{$v};
-  }
-}
-
-// Typography
-$font-family-primary: 'Helvetica Neue', sans-serif;
-
-
-// Typography: fluid responsive font sizes using clamp(vw)
-$font-sizes: (
-  xs: clamp(0.75rem, 1vw, 0.875rem),
-  sm: clamp(0.875rem, 1.2vw, 1rem),
-  base: clamp(1rem, 1.4vw, 1.125rem),
-  lg: clamp(1.125rem, 1.6vw, 1.25rem),
-  xl: clamp(1.25rem, 1.8vw, 1.5rem),
-  2xl: clamp(1.5rem, 2.2vw, 1.875rem),
-  3xl: clamp(1.875rem, 2.8vw, 2.25rem),
-  4xl: clamp(2.25rem, 3.4vw, 3rem),
-  5xl: clamp(3rem, 4vw, 4rem),
-  6xl: clamp(4rem, 5vw, 6rem)
-);
-
-@function font-size($size) {
-  @return map.get($font-sizes, $size);
-}
-
-$font-weights: (
-  light: 300,
-  normal: 400,
-  medium: 500,
-  semibold: 600,
-  bold: 700,
-  extrabold: 800
-);
-
-@function font-weight($weight) {
-  @return map.get($font-weights, $weight);
-}
-
-$line-heights: (
-  tight: 1.25,
-  normal: 1.5,
-  relaxed: 1.75
-);
-
-// Spacing
-$spacing: (
-  0: 0,
-  1: 0.25rem,
-  2: 0.5rem,
-  3: 0.75rem,
-  4: 1rem,
-  5: 1.25rem,
-  6: 1.5rem,
-  8: 2rem,
-  10: 2.5rem,
-  12: 3rem,
-  16: 4rem,
-  20: 5rem,
-  24: 6rem,
-  32: 8rem
-);
-
-@function spacing($size) {
-  @return map.get($spacing, $size);
-}
 
 // Breakpoints
 $breakpoints: (
@@ -208,59 +86,67 @@ $breakpoints: (
   2xl: 1536px
 );
 
-// Border radius
-$border-radius: (
-  none: 0,
-  sm: 0.125rem,
-  base: 0.375rem,
-  md: 0.5rem,
-  lg: 0.75rem,
-  xl: 1rem,
-  2xl: 1.5rem,
-  full: 9999px
-);
+$font-family-primary: 'Helvetica Neue', Arial, sans-serif;
 
-@function border-radius($size) {
-  @return map.get($border-radius, $size);
+$font-sizes: (
+  xs: 0.75rem,   // 12px
+  sm: 0.875rem,  // 14px
+  base: 1rem,    // 16px
+  lg: 1.125rem,  // 18px
+  xl: 1.25rem,   // 20px
+  '2xl': 1.5rem, // 24px
+  '3xl': 1.875rem, // 30px
+  '4xl': 2.25rem, // 36px
+  '5xl': 3rem    // 48px
+);
+$spacing: (
+  xs: 4px,
+  sm: 8px,
+  md: 12px,
+  lg: 16px,
+  xl: 24px
+);
+/* Export Sass maps and vars as CSS custom properties for use in plain CSS */
+:root {
+	/* Ensure 1rem equals 16px on the root */
+	font-size: 16px;
+	/* Backgrounds */
+	@each $name, $value in $backgrounds {
+		--bg-#{$name}: #{$value};
+	}
+
+	/* Chat status */
+	@each $name, $value in $chat-status {
+		--chat-status-#{$name}: #{$value};
+	}
+
+	/* Chat entities */
+	@each $name, $value in $chat-entities {
+		--chat-entity-#{$name}: #{$value};
+	}
+
+	/* Texts */
+	@each $name, $value in $texts {
+		--text-#{$name}: #{$value};
+	}
+
+	/* Breakpoints */
+	@each $name, $value in $breakpoints {
+		--bp-#{$name}: #{$value};
+	}
+
+	@each $name, $value in $font-sizes {
+		--#{$name}: #{$value};
+	}
+	@each $name, $value in $spacing {
+		--spacing-#{$name}: #{$value};
+	}
+
+	/* Font weights */
+	@each $name, $value in $font-weights {
+		--font-weight-#{$name}: #{$value};
+	}
+
+	/* Primitives */
+	--font-family-primary: #{$font-family-primary};
 }
-
-// Shadows (fixed syntax)
-$shadows: (
-  sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3),
-  base: (0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.2)),
-  md: (0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2)),
-  lg: (0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2)),
-  xl: (0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2)),
-  2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
-  inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3)
-);
-
-@function shadow($size) {
-  @return map.get($shadows, $size);
-}
-
-// Transitions
-$transitions: (
-  fast: 150ms cubic-bezier(0.4, 0.0, 0.2, 1),
-  base: 250ms cubic-bezier(0.4, 0.0, 0.2, 1),
-  slow: 350ms cubic-bezier(0.4, 0.0, 0.2, 1)
-);
-
-@function transition($speed: base) {
-  @return map.get($transitions, $speed);
-}
-
-// Z-index layers
-$z-index: (
-  dropdown: 1000,
-  sticky: 1020,
-  fixed: 1030,
-  modal-backdrop: 1040,
-  modal: 1050,
-  popover: 1060,
-  tooltip: 1070
-);
-
-// Layout specific variables
-$header-height: 4rem;
-$conversation-bubble-size: 300px;

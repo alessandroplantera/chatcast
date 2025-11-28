@@ -94,7 +94,8 @@ async function initializeDb() {
                   session_id TEXT PRIMARY KEY,
                   title TEXT,
                   created_at TEXT,
-                  status TEXT
+                  status TEXT,
+                  author TEXT
                 )
               `, (err) => {
                 if (err) console.error("Error creating Sessions table:", err);
@@ -102,7 +103,26 @@ async function initializeDb() {
                 resolve();
               });
             } else {
-              resolve();
+              // Check if author column exists in Sessions table
+              db.all("PRAGMA table_info(Sessions)", (err, sessionsInfo) => {
+                if (err) {
+                  resolve();
+                  return;
+                }
+                
+                const hasAuthor = sessionsInfo.some(column => column.name === 'author');
+                
+                if (!hasAuthor) {
+                  console.log("Adding author column to Sessions table...");
+                  db.run("ALTER TABLE Sessions ADD COLUMN author TEXT", (err) => {
+                    if (err) console.error("Error adding author column:", err);
+                    else console.log("author column added successfully.");
+                    resolve();
+                  });
+                } else {
+                  resolve();
+                }
+              });
             }
           });
         });
@@ -138,6 +158,7 @@ async function saveSession(sessionData) {
         
         let title = sessionData.title;
         let status = sessionData.status;
+        let author = sessionData.author;
         let created_at = sessionData.created_at || new Date().toISOString();
         
         if (existingSession) {
@@ -150,11 +171,15 @@ async function saveSession(sessionData) {
             status = existingSession.status;
           }
           
-          console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}`);
+          if (author === null || author === undefined) {
+            author = existingSession.author;
+          }
+          
+          console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}, Author: ${author}`);
           
           db.run(
-            "UPDATE Sessions SET title = ?, status = ? WHERE session_id = ?",
-            [title, status, session_id],
+            "UPDATE Sessions SET title = ?, status = ?, author = ? WHERE session_id = ?",
+            [title, status, author, session_id],
             function(err) {
               if (err) {
                 reject(err);
@@ -166,7 +191,8 @@ async function saveSession(sessionData) {
                 session_id,
                 title,
                 created_at: existingSession.created_at,
-                status
+                status,
+                author
               });
             }
           );
@@ -176,11 +202,11 @@ async function saveSession(sessionData) {
             status = 'active';
           }
           
-          console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}`);
+          console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}, Author: ${author}`);
           
           db.run(
-            "INSERT INTO Sessions (session_id, title, created_at, status) VALUES (?, ?, ?, ?)",
-            [session_id, title, created_at, status],
+            "INSERT INTO Sessions (session_id, title, created_at, status, author) VALUES (?, ?, ?, ?, ?)",
+            [session_id, title, created_at, status, author],
             function(err) {
               if (err) {
                 reject(err);
@@ -188,7 +214,7 @@ async function saveSession(sessionData) {
               }
               
               console.log(`Insert result: ${this.lastID}`);
-              resolve({ session_id, title, created_at, status });
+              resolve({ session_id, title, created_at, status, author });
             }
           );
         }
@@ -440,7 +466,8 @@ async function getSessionDetails(sessionId) {
       end_date: lastMsg ? lastMsg.date : null,
       participants: participants.map(p => p.username),
       message_count: countResult ? countResult.count : 0,
-      status: status
+      status: status,
+      author: sessionRecord ? sessionRecord.author : null
     };
     
     console.log(`Assembled session details for ${sessionId}:`, JSON.stringify(sessionDetails));
