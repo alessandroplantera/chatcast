@@ -8,9 +8,9 @@ const notion = new Client({
 
 const DATABASE_ID = process.env.NOTION_DATABASE_ID || '2b9145315011805b98bcd499d64144af';
 
-// Simple in-memory cache (5 minutes TTL)
+// Simple in-memory cache (15 minutes TTL)
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 function getCached(key) {
   const cached = cache.get(key);
@@ -36,16 +36,22 @@ async function getPageByTitle(title) {
   if (cached) return cached;
 
   try {
-    // Fetch all pages and do case-insensitive matching
-    const allPages = await notion.databases.query({
-      database_id: DATABASE_ID
-    });
+    // First check if we have all-pages cached to avoid extra API call
+    let allPagesResults = getCached('all-pages-raw');
     
-    console.log(`Notion: Found ${allPages.results.length} pages in database`);
+    if (!allPagesResults) {
+      const allPages = await notion.databases.query({
+        database_id: DATABASE_ID
+      });
+      allPagesResults = allPages.results;
+      setCache('all-pages-raw', allPagesResults);
+      console.log(`Notion: Fetched ${allPagesResults.length} pages from database`);
+    } else {
+      console.log(`Notion: Using cached pages list`);
+    }
     
-    const match = allPages.results.find(page => {
+    const match = allPagesResults.find(page => {
       const pageTitle = getPageTitle(page);
-      console.log(`Notion: Comparing "${pageTitle}" with "${title}"`);
       return pageTitle && pageTitle.toLowerCase() === title.toLowerCase();
     });
 
@@ -287,6 +293,8 @@ async function getAllPages() {
       page_size: 100
     });
 
+    // Cache raw results for getPageByTitle
+    setCache('all-pages-raw', response.results);
     console.log('Notion: Raw response results count:', response.results.length);
 
     const pages = response.results.map(page => ({
@@ -306,6 +314,43 @@ async function getAllPages() {
 }
 
 /**
+ * Get all pages with FULL content (for preloading)
+ * This fetches blocks for each page - use sparingly!
+ */
+async function getAllPagesWithContent() {
+  const cacheKey = 'all-pages-full';
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
+  try {
+    console.log('Notion: Fetching all pages with full content...');
+    const basicPages = await getAllPages();
+    
+    // Fetch full content for each page (excluding upcoming-chat)
+    const fullPages = await Promise.all(
+      basicPages
+        .filter(p => p.title && p.title.toLowerCase() !== 'upcoming-chat')
+        .map(async (page) => {
+          const fullData = await getPageContent(page.id);
+          // Also cache individually
+          if (fullData && fullData.title) {
+            setCache(`page:${fullData.title.toLowerCase()}`, fullData);
+          }
+          return fullData;
+        })
+    );
+    
+    const validPages = fullPages.filter(Boolean);
+    setCache(cacheKey, validPages);
+    console.log(`Notion: Preloaded ${validPages.length} pages with full content`);
+    return validPages;
+  } catch (error) {
+    console.error('Notion API error (getAllPagesWithContent):', error.message);
+    return [];
+  }
+}
+
+/**
  * Clear the cache (useful for forcing refresh)
  */
 function clearCache() {
@@ -317,5 +362,6 @@ module.exports = {
   getPageContent,
   getUpcomingChat,
   getAllPages,
+  getAllPagesWithContent,
   clearCache
 };

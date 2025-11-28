@@ -99,31 +99,45 @@
     if (guestCacheLoaded) return;
     
     try {
-      const res = await fetch('/api/notion/pages');
+      // Use /full endpoint to get complete content (blocks, media, etc.)
+      const res = await fetch('/api/notion/pages/full');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
       
       if (data.pages && Array.isArray(data.pages)) {
-        // Store basic info in cache
+        // Store FULL data in cache - no need to fetch again on click!
         data.pages.forEach(page => {
           if (page.title && page.title.toLowerCase() !== 'upcoming-chat') {
             guestCache.set(page.title.toLowerCase(), {
-              id: page.id,
-              title: page.title,
-              properties: page.properties,
-              cover: page.cover,
-              icon: page.icon,
-              // Mark as partial - will fetch full content on demand
-              partial: true
+              ...page,
+              partial: false // Full data, ready to use!
             });
           }
         });
         guestCacheLoaded = true;
-        console.log(`Notion: Preloaded ${guestCache.size} guests`);
+        console.log(`Notion: Preloaded ${guestCache.size} guests with full content`);
       }
     } catch (err) {
       console.error('Failed to preload Notion guests:', err);
+      // Fallback: try basic preload
+      try {
+        const res = await fetch('/api/notion/pages');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pages) {
+            data.pages.forEach(page => {
+              if (page.title && page.title.toLowerCase() !== 'upcoming-chat') {
+                guestCache.set(page.title.toLowerCase(), { ...page, partial: true });
+              }
+            });
+            guestCacheLoaded = true;
+            console.log(`Notion: Fallback preload ${guestCache.size} guests (partial)`);
+          }
+        }
+      } catch (e) {
+        console.error('Fallback preload also failed:', e);
+      }
     }
   }
 

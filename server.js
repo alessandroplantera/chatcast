@@ -1357,6 +1357,17 @@ fastify.get("/api/notion/pages", async (request, reply) => {
   }
 });
 
+// Preload all pages with FULL content (for faster guest clicks)
+fastify.get("/api/notion/pages/full", async (request, reply) => {
+  try {
+    const pages = await notionCms.getAllPagesWithContent();
+    return reply.send({ count: pages.length, pages });
+  } catch (err) {
+    console.error("Error fetching all Notion pages with content:", err);
+    return reply.status(500).send({ error: "Error fetching pages" });
+  }
+});
+
 // Clear Notion cache (force refresh)
 fastify.post("/api/notion/clear-cache", async (request, reply) => {
   try {
