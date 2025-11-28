@@ -3,7 +3,7 @@ const { Client } = require('@notionhq/client');
 
 // Initialize Notion client
 const notion = new Client({
-  auth: process.env.NOTION_TOKEN || 'NOTION_TOKEN_REDACTED'
+  auth: process.env.NOTION_TOKEN
 });
 
 const DATABASE_ID = process.env.NOTION_DATABASE_ID || '2b9145315011805b98bcd499d64144af';
