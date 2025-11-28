@@ -5,7 +5,7 @@
 .status-indicator {
 	display: inline-flex;
 	align-items: center;
-	font-weight: 800;
+	font-weight: var(--font-weight-medium);
 	color: var(--text-body-medium);
 }
 .status-indicator--active,

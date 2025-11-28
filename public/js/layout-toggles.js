@@ -59,6 +59,21 @@
     if (layout) layout.classList.add('is-right-collapsed');
   }
 
+  function toggleSidebar() {
+    if (!sidebar) return;
+    const isCollapsed = sidebar.classList.contains('is-collapsed');
+    if (isCollapsed) {
+      openSidebar();
+    } else {
+      closeSidebar();
+    }
+  }
+
+  // Check if we're on mobile
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
   function fmtTime(iso) {
     try {
       const d = new Date(iso);
@@ -104,6 +119,60 @@
     threadRoot.innerHTML = html;
   }
 
+  // Render thread header with session info
+  function renderThreadHeader(session) {
+    const headerContent = document.getElementById('thread-header-content');
+    if (!headerContent || !session) return;
+
+    const author = escapeHTML(session.author || 'Host');
+    const title = escapeHTML(session.title || `Conversation ${session.session_id}`);
+    const participants = session.participants || [];
+    const messageCount = session.message_count || 0;
+    const status = session.status || 'archived';
+    const startDate = session.start_date ? formatDate(session.start_date) : 'No date available';
+
+    // Filter out the author from participants
+    const guests = participants.filter(p => p !== session.author);
+    const guestHtml = guests.length > 0
+      ? guests.map(g => `<span class="user-badge user__guest">&lt;${escapeHTML(g)}&gt;</span>`).join(' ')
+      : '<span class="user-badge user__guest">&lt;Guest&gt;</span>';
+
+    const statusLabel = status === 'active' ? 'Live' : status === 'paused' ? 'Paused' : 'Archived';
+    const messagesLabel = messageCount === 1 ? '1 message' : `${messageCount} messages`;
+
+    headerContent.innerHTML = `
+      <div class="conversation-list__header">
+        <div>
+          <div class="conversation-list__header-title">
+            <span class="user-badge">&lt;${author}&gt;</span> and ${guestHtml} talking about ${title}
+          </div>
+        </div>
+      </div>
+      <div class="conversation-list__meta">
+        <div class="conversation-list__meta-info">
+          <div class="infos__sx">
+            <span class="status-indicator status-indicator--${status}">${statusLabel}</span>
+            - ${startDate}
+          </div>
+          <div class="infos__dx">
+            <div class="conversation-list__header-meta">
+              <div class="conversation-list__meta-badge">[${messagesLabel}]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function formatDate(dateString) {
+    try {
+      const d = new Date(dateString);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
+  }
+
   async function loadThread(sessionId) {
     if (!sessionId) return;
     try {
@@ -111,7 +180,8 @@
       const res = await fetch(`/messages?session_id=${encodeURIComponent(sessionId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      renderMessages(data.messages, data.author);
+      renderThreadHeader(data.session);
+      renderMessages(data.messages, data.session?.author);
       showThread();
     } catch (err) {
       console.error('Failed to load thread', err);
@@ -205,7 +275,12 @@
         }
         if (e.target.closest('.js-sidebar-open')) {
           e.preventDefault();
-          openSidebar();
+          // On mobile, toggle instead of just open
+          if (isMobile()) {
+            toggleSidebar();
+          } else {
+            openSidebar();
+          }
           return;
         }
         if (e.target.closest('.js-sidebar-close')) {

@@ -4,7 +4,7 @@
 // Local font imports
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('../fonts/HelveticaNeue-Thin-13.woff2') format('woff2');
+  src: url('/fonts/HelveticaNeue-Thin-13.woff2') format('woff2');
   font-weight: 100;
   font-style: normal;
   font-display: swap;
@@ -12,7 +12,7 @@
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('../fonts/HelveticaNeue-01.woff2') format('woff2');
+  src: url('/fonts/HelveticaNeue-01.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -20,7 +20,7 @@
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('../fonts/HelveticaNeue-Medium-11.woff2') format('woff2');
+  src: url('/fonts/HelveticaNeue-Medium-11.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -28,7 +28,7 @@
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('../fonts/HelveticaNeue-Bold-02.woff2') format('woff2');
+  src: url('/fonts/HelveticaNeue-Bold-02.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -36,7 +36,7 @@
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('../fonts/HelveticaNeue-CondensedBlack-10.woff2') format('woff2');
+  src: url('/fonts/HelveticaNeue-CondensedBlack-10.woff2') format('woff2');
   font-weight: 900;
   font-style: normal;
   font-display: swap;
@@ -72,7 +72,7 @@ $texts: (
   body-medium:       #3f3f3f,
   body-dark:         #161616,
   body-medium-light: #808080,
-  body-light:        #f0f0f0
+  body-light:        #bfbfbf
 );
 
 

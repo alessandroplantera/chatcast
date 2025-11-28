@@ -1075,15 +1075,15 @@ fastify.get("/messages", async (request, reply) => {
     // If a session ID is provided, prioritize filtering by session
     if (sessionId) {
       const messages = await db.getMessagesBySession(sessionId);
-      const session = await db.getSession(sessionId);
+      const sessionDetails = await db.getSessionDetails(sessionId);
       return reply.send({
-        author: session?.author || null,
+        session: sessionDetails,
         messages: messages
       });
     } else {
       // Otherwise fall back to filtering by chat_id
       const messages = await db.getMessages(chatId);
-      return reply.send({ author: null, messages: messages });
+      return reply.send({ session: null, messages: messages });
     }
   } catch (err) {
     console.error(err);

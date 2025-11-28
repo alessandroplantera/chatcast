@@ -16,23 +16,23 @@
 }
 
 .message-thread__message {
-	padding: .75rem 1rem;
 	max-width: 60%;
-	border-radius: .5rem;
-	background: var(--bg-dark);
+}
+@media (max-width: 768px) {
+	.message-thread__message {
+		max-width: 80%;
+	}
 }
 
 /* Guest messages - left aligned */
 .message-thread__message--guest {
 	align-self: flex-start;
-	background: var(--bg-dark);
 }
 
-/* Host (Serena) messages - right aligned */
+/* Host(group creator) messages - right aligned */
 .message-thread__message--host {
 	align-self: flex-end;
-	background: rgba(255, 255, 255, 0.08);
-	text-align: right;
+	text-align: left;
 }
 
 .message-thread__header {
@@ -43,7 +43,7 @@
 }
 
 .message-thread__message--host .message-thread__header {
-	justify-content: flex-end;
+	justify-content: flex-start;
 }
 
 .message-thread__content {
@@ -67,4 +67,4 @@
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--border-color); }
 
 /* Sidebar organism overrides */
-.sidebar__title { margin: 0; font-size: 1rem; font-weight: 700; }
+.sidebar__title { margin: 0; font-size: var(--sm); font-weight: var(--font-weight-regular); }

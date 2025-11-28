@@ -16,6 +16,9 @@
 		<section class="layout__col layout__col--center" id="col-center" role="region" aria-live="polite" hidden>
 			<header class="thread-header">
 				<button class="icon-btn js-thread-close" aria-controls="col-center" aria-expanded="true" aria-label="Close message thread">[x]</button>
+				<div id="thread-header-content" class="conversation-list__item conversation-list__item--header">
+					<!-- Header content will be populated by JavaScript -->
+				</div>
 			</header>
 			<div id="message-thread-root" class="message-thread">
 				{{> components/organisms/message-thread }}
@@ -25,12 +28,16 @@
 			<!-- Collapsed vertical tab (visible only when sidebar is closed) -->
 			<button class="sidebar-tab js-sidebar-open" aria-controls="col-right" aria-label="Open About panel">
 				<span class="sidebar-tab__label">ABOUT</span>
+				<span class="sidebar-tab__icon">
+					<img src="/graphics/up-arrow.svg" alt="" class="sidebar-tab__arrow" />
+				</span>
+				<span class="sidebar-tab__close">[-]</span>
 			</button>
 			<!-- Expanded panel (hidden when collapsed) -->
 			<div class="sidebar__panel" id="sidebar-panel" hidden>
 				<header class="sidebar__header">
-					<button class="icon-btn js-sidebar-close" aria-controls="col-right" aria-label="Close About panel">×</button>
-					<h2 class="sidebar__title">About</h2>
+					<h2 class="sidebar__title">ABOUT</h2>
+					<button class="icon-btn js-sidebar-close" aria-controls="col-right" aria-label="Close About panel">[-]</button>
 				</header>
 				<div id="sidebar-root" class="sidebar__content">
 					{{> components/organisms/sidebar }}
