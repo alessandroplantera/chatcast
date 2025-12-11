@@ -1598,6 +1598,40 @@ fastify.get("/admin/sync-status", async (request, reply) => {
   }
 });
 
+// Reset database (admin only)
+fastify.post("/admin/reset-db", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+
+    console.log('[Admin] Database reset triggered');
+
+    const cleared = await db.resetDatabase();
+
+    return reply.send({
+      success: true,
+      message: 'Database reset complete',
+      cleared
+    });
+  } catch (err) {
+    console.error("Error resetting database:", err);
+
+    // Handle partial success (some operations failed)
+    if (err.partial) {
+      return reply.status(500).send({
+        success: false,
+        error: 'Database reset completed with errors',
+        errors: err.errors,
+        cleared: err.cleared
+      });
+    }
+
+    return reply.status(500).send({
+      error: "Error resetting database",
+      details: err.message
+    });
+  }
+});
+
 let sessionCheckInterval;
 
 // Avvia il server con una migliore inizializzazione

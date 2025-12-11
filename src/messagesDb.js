@@ -668,6 +668,64 @@ async function syncAllSessionsWithNotion(userMetadataMap) {
   });
 }
 
+// Reset database - clear all messages and sessions
+function resetDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      return reject(new Error('Database not initialized'));
+    }
+
+    db.serialize(() => {
+      const errors = [];
+      const cleared = { messages: 0, sessions: 0 };
+
+      // Clear all messages
+      db.run("DELETE FROM Messages", function(err) {
+        if (err) {
+          errors.push(`Messages: ${err.message}`);
+        } else {
+          cleared.messages = this.changes;
+          console.log(`✓ Cleared ${cleared.messages} messages`);
+        }
+      });
+
+      // Clear all sessions
+      db.run("DELETE FROM Sessions", function(err) {
+        if (err) {
+          errors.push(`Sessions: ${err.message}`);
+        } else {
+          cleared.sessions = this.changes;
+          console.log(`✓ Cleared ${cleared.sessions} sessions`);
+        }
+      });
+
+      // Reset auto-increment counters
+      db.run("DELETE FROM sqlite_sequence WHERE name='Messages'", (err) => {
+        if (err && !err.message.includes('no such table')) {
+          errors.push(`Messages counter: ${err.message}`);
+        } else {
+          console.log('✓ Messages counter reset');
+        }
+      });
+
+      db.run("DELETE FROM sqlite_sequence WHERE name='Sessions'", (err) => {
+        if (err && !err.message.includes('no such table')) {
+          errors.push(`Sessions counter: ${err.message}`);
+        } else {
+          console.log('✓ Sessions counter reset');
+        }
+
+        // This is the last operation, resolve here
+        if (errors.length > 0) {
+          reject({ errors, cleared, partial: true });
+        } else {
+          resolve(cleared);
+        }
+      });
+    });
+  });
+}
+
 module.exports = {
   saveMessage,
   getMessages,
@@ -681,5 +739,6 @@ module.exports = {
   getAllSessions,
   checkAndFixSessionStatuses,
   updateSessionAuthorMetadata,
-  syncAllSessionsWithNotion
+  syncAllSessionsWithNotion,
+  resetDatabase
 };
