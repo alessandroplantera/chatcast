@@ -23,47 +23,51 @@
 			</div>
 		</section>
 		<section class="layout__col layout__col--right sidebar is-collapsed" id="col-right" aria-expanded="false">
-			<!-- Collapsed vertical tab (visible only when sidebar is closed) -->
-			<button class="sidebar-tab js-sidebar-open" aria-controls="col-right" aria-label="Open About panel">
-				<span class="sidebar-tab__label">ABOUT</span>
+			<!-- Collapsed vertical tab for About (visible only when sidebar is closed) -->
+			<button class="sidebar-tab sidebar-tab--about js-about-tab-open" aria-controls="about-panel" aria-label="Open About panel">
+				<span class="sidebar-tab__label">ABOUT THE PROJECT</span>
 				<span class="sidebar-tab__icon">
 					<img src="/graphics/up-arrow.svg" alt="" class="sidebar-tab__arrow" />
 				</span>
 				<span class="sidebar-tab__close">[-]</span>
 			</button>
-			<!-- Expanded panel (hidden when collapsed) -->
-			<div class="sidebar__panel" id="sidebar-panel" hidden>
-				<!-- Tabs header -->
-				<header class="sidebar__tabs">
-					<button class="sidebar__tab js-tab-about" id="sidebar-tab-about">ABOUT
-						<span class="icon-btn sidebar__close js-sidebar-close" aria-controls="col-right" aria-label="Close panel">[-]</span>
-					</button>
-					<button class="sidebar__tab js-tab-guest" id="sidebar-tab-guest" hidden>
-						<span class="sidebar__tab-title" id="guest-tab-title">GUEST</span>
-						<span class="sidebar__tab-close js-guest-card-close">[x]</span>
-					</button>
+
+			<!-- Collapsed vertical tab for Guest (visible only when guest is loaded and sidebar is closed) -->
+			<button class="sidebar-tab sidebar-tab--guest js-guest-tab-open" id="guest-sidebar-tab" aria-controls="guest-panel" aria-label="Open Guest panel" hidden>
+				<span class="sidebar-tab__label" id="guest-sidebar-tab-label">GUEST</span>
+				<span class="sidebar-tab__icon">
+					<img src="/graphics/up-arrow.svg" alt="" class="sidebar-tab__arrow" />
+				</span>
+				<span class="sidebar-tab__close">[-]</span>
+			</button>
+
+			<!-- About Panel (separate from guest) -->
+			<div class="sidebar__panel sidebar__panel--about" id="about-panel" hidden>
+				<header class="sidebar__panel-header">
+					<h2 class="sidebar__panel-title">ABOUT THE PROJECT</h2>
+					<button class="icon-btn sidebar__close js-about-close" aria-controls="about-panel" aria-label="Close About panel">[-]</button>
 				</header>
-				
-				<!-- Tab content: ABOUT -->
-				<div class="sidebar__tab-content is-active" id="sidebar-content-about">
-					<div class="sidebar__content">
-						{{> components/organisms/sidebar }}
-					</div>
+				<div class="sidebar__content">
+					{{> components/organisms/sidebar }}
 				</div>
-				
-				<!-- Tab content: GUEST (from Notion CMS) -->
-				<div class="sidebar__tab-content" id="sidebar-content-guest">
-					<article class="guest-card is-visible" id="guest-card">
-						<div class="guest-card__body">
-							<div class="guest-card__cover" id="guest-card-cover"></div>
-							<div class="guest-card__content" id="guest-card-content">
-								<!-- Content from Notion will be injected here -->
-							</div>
+			</div>
+
+			<!-- Guest Panel (separate from about) -->
+			<div class="sidebar__panel sidebar__panel--guest" id="guest-panel" hidden>
+				<header class="sidebar__panel-header">
+					<h2 class="sidebar__panel-title" id="guest-panel-title">GUEST</h2>
+					<button class="icon-btn sidebar__close js-guest-close" aria-controls="guest-panel" aria-label="Close Guest panel">[x]</button>
+				</header>
+				<article class="guest-card is-visible" id="guest-card">
+					<div class="guest-card__body">
+						<div class="guest-card__cover" id="guest-card-cover"></div>
+						<div class="guest-card__content" id="guest-card-content">
+							<!-- Content from Notion will be injected here -->
 						</div>
-					</article>
-					<!-- Hidden title for JS -->
-					<span hidden id="guest-card-title"></span>
-				</div>
+					</div>
+				</article>
+				<!-- Hidden title for JS -->
+				<span hidden id="guest-card-title"></span>
 			</div>
 		</section>
 	</div>

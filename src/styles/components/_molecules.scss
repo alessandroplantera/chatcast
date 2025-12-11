@@ -109,7 +109,7 @@
 }
 
 .guest-card__body {
-	padding: 0;
+	padding-bottom: 10vh;
 	overflow-y: auto;
 	flex: 1;
 }
@@ -126,10 +126,11 @@
 }
 
 .guest-card__content {
-	padding: 1rem;
 	font-size: var(--sm);
 	line-height: 1.6;
+	padding-inline: 0.5rem;
 	color: var(--text-body-light);
+	padding: 0.5rem 0.25rem;
 	
 	p {
 		margin: 0 0 1rem 0;
@@ -144,6 +145,7 @@
 .guest-card__social {
 	margin: 0;
 	font-size: var(--sm);
+	padding-right: 0.25rem;
 	color: var(--text-body-light);
 	text-align: right;
 	

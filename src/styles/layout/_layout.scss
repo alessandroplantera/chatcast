@@ -4,14 +4,14 @@
 
 /* Local design constants (no custom Sass functions used) */
 :root {
-	--border-color: rgba(255,255,255,0.12);
-	--hover-bg: rgba(255,255,255,0.04);
+	--border-color: rgba(255, 255, 255, 0.12);
+	--hover-bg: rgba(255, 255, 255, 0.04);
 }
 
 /* Upcoming Chat Banner */
 .upcoming-chat-banner {
 	color: var(--text-body-light);
-	padding: 1rem;
+	padding: calc(var(--base) / 4) calc(var(--base) / 2);
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
@@ -63,16 +63,19 @@
 	/* Only left visible: take 100% */
 	grid-template-columns: 1fr;
 }
+
 /* Left + Right (no center) */
 .layout.is-center-collapsed:not(.is-right-collapsed) {
 	/* Left + Right (no center): left remains fluid, right fixed */
 	grid-template-columns: 1fr var(--layout-right-width);
 }
+
 /* Left + Center */
 .layout:not(.is-center-collapsed).is-right-collapsed {
 	/* Left + Center: left becomes sidebar width, center fills */
 	grid-template-columns: var(--layout-left-width) 1fr;
 }
+
 /* All three visible */
 .layout:not(.is-center-collapsed):not(.is-right-collapsed) {
 	grid-template-columns: var(--layout-left-width) 1fr var(--layout-right-width);
@@ -92,6 +95,7 @@
 	overflow: visible;
 	pointer-events: none;
 }
+
 .layout.is-right-collapsed .layout__col--right .sidebar-tab {
 	pointer-events: auto;
 }
@@ -105,7 +109,10 @@
 	flex-direction: column;
 	background: var(--bg-black);
 }
-.layout__col:last-child { border-right: none; }
+
+.layout__col:last-child {
+	border-right: none;
+}
 
 
 .layout__col--center {
@@ -113,14 +120,21 @@
 	opacity: 0;
 	transition: opacity .25s ease;
 }
+
 .layout__col--center[hidden] {
 	display: none !important;
 }
+
 .layout__col--center:not([hidden]) {
 	opacity: 1;
 	min-width: 35%;
 }
-.layout__col--center .message-thread { flex: 1; overflow-y: auto; padding: .75rem 1rem; }
+
+.layout__col--center .message-thread {
+	flex: 1;
+	overflow-y: auto;
+	padding: .75rem 1rem;
+}
 
 .thread-header {
 	padding: .75rem 1rem;
@@ -137,19 +151,23 @@
 .thread-header-content {
 	flex: 1;
 	background-color: var(--bg-black);
-	padding:0;
+	padding: 0;
 	pointer-events: none;
+
 	.conversation-list__header-title {
 		color: var(--text-body-light);
+
 		.user__guest {
 			color: var(--chat-entity-guest);
 		}
 	}
+
 	.conversation-list__meta * {
 		color: var(--text-body-light);
 	}
 
 }
+
 /* Sidebar (right column) */
 .sidebar {
 	background: var(--bg-black);
@@ -157,8 +175,9 @@
 	flex-direction: column;
 	position: relative;
 }
+
 .sidebar.is-collapsed {
-	/* Remove from layout flow completely; only show the floating tab */
+	/* Remove from layout flow completely; only show the floating tabs */
 	position: fixed;
 	right: -1px;
 	top: 0;
@@ -168,21 +187,52 @@
 	background: transparent;
 	pointer-events: none;
 }
+
 .sidebar.is-collapsed .sidebar-tab {
 	pointer-events: auto;
-	padding-inline:0.21rem;
+	padding-inline: 0.21rem;
 }
-.sidebar:not(.is-collapsed) { position: relative; }
+
+.sidebar:not(.is-collapsed) {
+	position: relative;
+	width: 60%;
+}
 
 .sidebar__panel {
 	/* When visible, shown via [hidden] toggle; animate slide-in */
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	width: 100%;
 	will-change: transform, opacity;
 }
-.sidebar__panel[hidden] { display: none !important; }
-.sidebar__panel:not([hidden]) { animation: sidebarSlide .28s ease; }
+
+.sidebar__panel[hidden] {
+	display: none !important;
+}
+
+.sidebar__panel:not([hidden]) {
+	animation: sidebarSlide .28s ease;
+}
+
+/* Panel header (for separate panels) */
+.sidebar__panel-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: var(--bg-black);
+	padding: 0.25rem 0.4rem;
+	min-height: fit-content;
+}
+
+.sidebar__panel-title {
+	margin: 0;
+	font-size: var(--sm);
+	font-weight: var(--font-weight-regular);
+	color: var(--text-body-light);
+	letter-spacing: .05em;
+	line-height: 1;
+}
 
 /* Sidebar Tabs */
 .sidebar__tabs {
@@ -191,7 +241,7 @@
 	border-bottom: 1px solid var(--border-color);
 	background: var(--bg-black);
 	min-height: 0.5rem;
-    max-height: 1.5rem;
+	max-height: 1.5rem;
 }
 
 .sidebar__tab {
@@ -208,7 +258,8 @@
 	letter-spacing: .05em;
 	cursor: pointer;
 	transition: background .2s ease;
-	flex: 1; /* Default: take available space */
+	flex: 1;
+	/* Default: take available space */
 }
 
 /* When tabs container has .has-guest, tabs get min-width and compete for space */
@@ -224,11 +275,13 @@
 	min-width: clamp(20%, 30%, 40%);
 	max-width: 40%;
 }
-.js-tab-guest{
+
+.js-tab-guest {
 	width: 70%;
 	max-width: 70%;
 	color: var(--text-body-light);
 }
+
 .sidebar__tab:hover {
 	background: var(--hover-bg);
 	color: var(--text-body-light);
@@ -244,8 +297,9 @@
 .sidebar__tab[hidden] {
 	display: none;
 }
+
 .sidebar__tab-title.is-active {
-	color:var(--text-body-dark);
+	color: var(--text-body-dark);
 }
 
 .sidebar__tab-close {
@@ -292,26 +346,55 @@
 	letter-spacing: .05em;
 }
 
-.sidebar__content { flex: 1; overflow-y: auto;  }
+.sidebar__content {
+	flex: 1;
+	overflow-y: auto;
+	padding-bottom: 10vh;
+}
 
-@keyframes sidebarSlide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sidebarSlide {
+	from {
+		opacity: 0;
+		transform: translateX(12px);
+	}
 
-/* Vertical tab when collapsed */
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+/* Tabs when collapsed - horizontal in bottom right */
 .sidebar-tab {
 	position: fixed;
-	right: 0;
-	top: 50%;
-	transform: translateY(-50%) translateX(35%) rotate(-90deg);
-	transform-origin: center;
+	right: 1rem;
+	bottom: 1rem;
+	transform: none;
 	background: var(--bg-black);
 	color: var(--text-body-light);
-	border: 1px solid var(--bg-dark);
-	border-bottom: none;
-	font-size: var(--lg);
+	font-size: var(--base);
 	font-weight: var(--font-weight-regular);
 	letter-spacing: .05em;
 	cursor: pointer;
 	transition: background .2s ease;
+	padding: 0rem 0.25rem;
+}
+
+/* Position About tab - always in bottom right */
+.sidebar-tab--about {
+	right: 0;
+	bottom: 0;
+}
+
+/* Position Guest tab - to the left of About when visible */
+.sidebar-tab--guest {
+	bottom: 1rem;
+	/* Calculate position: 1rem (about right margin) + about width + gap */
+	right: calc(1rem + 12rem + 0.5rem);
+}
+
+.sidebar-tab--guest[hidden] {
+	display: none;
 }
 
 /* Hide icon and close button on desktop (only show label) */
@@ -320,12 +403,15 @@
 	display: none;
 }
 
-/* Hide the tab when the panel is open */
-.sidebar:not(.is-collapsed) .sidebar-tab { display: none; }
+/* Hide the tabs when the panel is open */
+.sidebar:not(.is-collapsed) .sidebar-tab {
+	display: none;
+}
 
 .icon-btn {
 	background: transparent;
 	color: var(--text-body-light);
+	line-height: 0 !important; 
 	cursor: pointer;
 	font: inherit;
 	transition: background .15s ease, border-color .15s ease;
@@ -335,13 +421,14 @@
    MOBILE STYLES (max-width: 768px)
    =========================================== */
 @media (max-width: 768px) {
+
 	/* Layout: single column, no grid complexity */
 	.layout {
 		display: flex;
 		flex-direction: column;
 		position: relative;
 	}
-	
+
 	/* Reset all grid-based states for mobile */
 	.layout.is-center-collapsed.is-right-collapsed,
 	.layout.is-center-collapsed:not(.is-right-collapsed),
@@ -349,38 +436,42 @@
 	.layout:not(.is-center-collapsed):not(.is-right-collapsed) {
 		grid-template-columns: unset;
 	}
-	
+
 	/* Left column: full screen, leave space for bottom bar */
 	.layout__col--left {
 		flex: 1;
-		padding-bottom: var(--3xl); /* Space for bottom bar */
+		padding-bottom: var(--3xl);
+		/* Space for bottom bar */
 		overflow-y: auto;
 	}
-	
+
 	/* Center column: overlay on mobile */
 	.layout__col--center {
 		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
-		bottom: var(--3xl); /* Leave space for bottom bar */
+		bottom: var(--3xl);
+		/* Leave space for bottom bar */
 		z-index: 100;
 		background-color: var(--bg-light);
 		transform: translateY(100%);
 		transition: transform .35s ease, opacity .25s ease;
 	}
+
 	.layout__col--center[hidden] {
 		display: flex !important;
 		transform: translateY(100%);
 		opacity: 0;
 		pointer-events: none;
 	}
+
 	.layout__col--center:not([hidden]) {
 		transform: translateY(0);
 		opacity: 1;
 		pointer-events: auto;
 	}
-	
+
 	/* Right column (sidebar): becomes bottom bar */
 	.layout__col--right,
 	.sidebar {
@@ -400,7 +491,7 @@
 		overflow: visible;
 		pointer-events: auto !important;
 	}
-	
+
 	/* Collapsed sidebar on mobile: just the bottom tab bar */
 	.layout.is-right-collapsed .layout__col--right,
 	.sidebar.is-collapsed {
@@ -408,60 +499,82 @@
 		max-height: var(--3xl);
 		overflow: hidden;
 	}
-	
+
 	/* Expanded sidebar on mobile: slides up */
 	.layout:not(.is-right-collapsed) .layout__col--right,
 	.sidebar:not(.is-collapsed) {
 		height: 98vh;
 		max-height: 100vh;
 	}
-	
-	/* Bottom bar tab (replaces vertical sidebar tab) */
+
+	/* Bottom bar tabs (replaces vertical sidebar tabs) */
 	.sidebar-tab {
 		position: relative;
 		right: auto;
 		top: auto;
 		transform: none;
-		width: 100%;
+		width: 50%;
 		height: var(--3xl);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 1rem;
+		padding: calc(var(--base) / 4) calc(var(--base) / 2);
 		background: var(--bg-black);
 		border: none;
 		border-top: 1px solid var(--border-color);
 		font-size: var(--base);
 	}
-	
+
+	/* Position about and guest tabs side by side */
+	.sidebar-tab--about {
+		border-right: 1px solid var(--border-color);
+		width: 100%;
+	}
+
+	.sidebar-tab--guest {
+		/* No additional positioning needed */
+	}
+
+	.sidebar-tab--guest[hidden] {
+		display: none;
+	}
+
+	/* When guest is hidden, about takes full width */
+	.sidebar-tab--about:only-of-type {
+		width: 100%;
+		border-right: none;
+	}
+
 	/* Arrow icon in tab */
 	.sidebar-tab__arrow {
 		width: 1rem;
 		height: 1rem;
 		transition: transform .25s ease;
 	}
-	
+
 	/* Hide close button when collapsed, show arrow */
 	.sidebar.is-collapsed .sidebar-tab__close {
 		display: none;
 	}
+
 	.sidebar.is-collapsed .sidebar-tab__icon {
 		display: flex;
 	}
-	
+
 	/* Show close button when expanded, hide arrow */
 	.sidebar:not(.is-collapsed) .sidebar-tab__close {
 		display: block;
 	}
+
 	.sidebar:not(.is-collapsed) .sidebar-tab__icon {
 		display: none;
 	}
-	
-	/* Show tab even when panel is open on mobile */
+
+	/* Hide tabs when panel is open on mobile */
 	.sidebar:not(.is-collapsed) .sidebar-tab {
-		display: none; /* Hide the bottom bar tab when panel is open - use sidebar__tabs instead */
+		display: none;
 	}
-	
+
 	/* Panel slides up from bottom */
 	.sidebar__panel {
 		height: calc(100vh - var(--3xl));
@@ -470,44 +583,41 @@
 		display: flex;
 		flex-direction: column;
 	}
+
 	.sidebar__panel[hidden] {
 		display: none !important;
 	}
-	
-	/* Tabs header on mobile */
-	.sidebar__tabs {
+
+	/* Panel header on mobile */
+	.sidebar__panel-header {
 		flex-shrink: 0;
 		min-height: var(--3xl);
 	}
-	
+
 	/* Make sure close button is visible on mobile */
 	.sidebar__close {
 		display: block !important;
 	}
-	
-	/* Tab content fills remaining space */
-	.sidebar__tab-content {
+
+	/* Sidebar content fills remaining space */
+	.sidebar__content {
 		flex: 1;
 		overflow-y: auto;
 	}
-	
-	/* Hide desktop sidebar header on mobile (use tab instead) */
-	.sidebar__header {
-		display: none;
-	}
-	
+
 	/* Animation for mobile bottom sheet */
 	@keyframes bottomSheetSlide {
-		from { 
-			opacity: 0; 
-			transform: translateY(20px); 
+		from {
+			opacity: 0;
+			transform: translateY(20px);
 		}
-		to { 
-			opacity: 1; 
-			transform: translateY(0); 
+
+		to {
+			opacity: 1;
+			transform: translateY(0);
 		}
 	}
-	
+
 	.sidebar__panel:not([hidden]) {
 		animation: bottomSheetSlide .28s ease;
 	}

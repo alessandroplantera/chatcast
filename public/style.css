@@ -299,11 +299,13 @@ body {
   margin: 0;
   font-size: var(--sm);
   line-height: 1.5;
+  padding: 0.5rem 0.25rem;
   color: var(--text-body-light);
 }
 
 .about__credits {
   margin: 0;
+  padding-right: 0.5rem;
   font-size: var(--sm);
   color: var(--text-body-light);
   text-align: right;
@@ -311,14 +313,14 @@ body {
 
 /* Local design constants (no custom Sass functions used) */
 :root {
-  --border-color: rgba(255,255,255,0.12);
-  --hover-bg: rgba(255,255,255,0.04);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --hover-bg: rgba(255, 255, 255, 0.04);
 }
 
 /* Upcoming Chat Banner */
 .upcoming-chat-banner {
   color: var(--text-body-light);
-  padding: 1rem;
+  padding: calc(var(--base) / 4) calc(var(--base) / 2);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -482,7 +484,7 @@ body {
 }
 
 .sidebar.is-collapsed {
-  /* Remove from layout flow completely; only show the floating tab */
+  /* Remove from layout flow completely; only show the floating tabs */
   position: fixed;
   right: -1px;
   top: 0;
@@ -500,6 +502,7 @@ body {
 
 .sidebar:not(.is-collapsed) {
   position: relative;
+  width: 60%;
 }
 
 .sidebar__panel {
@@ -507,6 +510,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   will-change: transform, opacity;
 }
 
@@ -516,6 +520,25 @@ body {
 
 .sidebar__panel:not([hidden]) {
   animation: sidebarSlide 0.28s ease;
+}
+
+/* Panel header (for separate panels) */
+.sidebar__panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-black);
+  padding: 0.25rem 0.4rem;
+  min-height: fit-content;
+}
+
+.sidebar__panel-title {
+  margin: 0;
+  font-size: var(--sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-body-light);
+  letter-spacing: 0.05em;
+  line-height: 1;
 }
 
 /* Sidebar Tabs */
@@ -542,7 +565,8 @@ body {
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.2s ease;
-  flex: 1; /* Default: take available space */
+  flex: 1;
+  /* Default: take available space */
 }
 
 /* When tabs container has .has-guest, tabs get min-width and compete for space */
@@ -631,6 +655,7 @@ body {
 .sidebar__content {
   flex: 1;
   overflow-y: auto;
+  padding-bottom: 10vh;
 }
 
 @keyframes sidebarSlide {
@@ -643,22 +668,37 @@ body {
     transform: translateX(0);
   }
 }
-/* Vertical tab when collapsed */
+/* Tabs when collapsed - horizontal in bottom right */
 .sidebar-tab {
   position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%) translateX(35%) rotate(-90deg);
-  transform-origin: center;
+  right: 1rem;
+  bottom: 1rem;
+  transform: none;
   background: var(--bg-black);
   color: var(--text-body-light);
-  border: 1px solid var(--bg-dark);
-  border-bottom: none;
-  font-size: var(--lg);
+  font-size: var(--base);
   font-weight: var(--font-weight-regular);
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.2s ease;
+  padding: 0rem 0.25rem;
+}
+
+/* Position About tab - always in bottom right */
+.sidebar-tab--about {
+  right: 0;
+  bottom: 0;
+}
+
+/* Position Guest tab - to the left of About when visible */
+.sidebar-tab--guest {
+  bottom: 1rem;
+  /* Calculate position: 1rem (about right margin) + about width + gap */
+  right: 13.5rem;
+}
+
+.sidebar-tab--guest[hidden] {
+  display: none;
 }
 
 /* Hide icon and close button on desktop (only show label) */
@@ -667,7 +707,7 @@ body {
   display: none;
 }
 
-/* Hide the tab when the panel is open */
+/* Hide the tabs when the panel is open */
 .sidebar:not(.is-collapsed) .sidebar-tab {
   display: none;
 }
@@ -675,6 +715,7 @@ body {
 .icon-btn {
   background: transparent;
   color: var(--text-body-light);
+  line-height: 0 !important;
   cursor: pointer;
   font: inherit;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -700,7 +741,8 @@ body {
   /* Left column: full screen, leave space for bottom bar */
   .layout__col--left {
     flex: 1;
-    padding-bottom: var(--3xl); /* Space for bottom bar */
+    padding-bottom: var(--3xl);
+    /* Space for bottom bar */
     overflow-y: auto;
   }
   /* Center column: overlay on mobile */
@@ -709,7 +751,8 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    bottom: var(--3xl); /* Leave space for bottom bar */
+    bottom: var(--3xl);
+    /* Leave space for bottom bar */
     z-index: 100;
     background-color: var(--bg-light);
     transform: translateY(100%);
@@ -758,22 +801,38 @@ body {
     height: 98vh;
     max-height: 100vh;
   }
-  /* Bottom bar tab (replaces vertical sidebar tab) */
+  /* Bottom bar tabs (replaces vertical sidebar tabs) */
   .sidebar-tab {
     position: relative;
     right: auto;
     top: auto;
     transform: none;
-    width: 100%;
+    width: 50%;
     height: var(--3xl);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1rem;
+    padding: calc(var(--base) / 4) calc(var(--base) / 2);
     background: var(--bg-black);
     border: none;
     border-top: 1px solid var(--border-color);
     font-size: var(--base);
+  }
+  /* Position about and guest tabs side by side */
+  .sidebar-tab--about {
+    border-right: 1px solid var(--border-color);
+    width: 100%;
+  }
+  .sidebar-tab--guest {
+    /* No additional positioning needed */
+  }
+  .sidebar-tab--guest[hidden] {
+    display: none;
+  }
+  /* When guest is hidden, about takes full width */
+  .sidebar-tab--about:only-of-type {
+    width: 100%;
+    border-right: none;
   }
   /* Arrow icon in tab */
   .sidebar-tab__arrow {
@@ -795,9 +854,9 @@ body {
   .sidebar:not(.is-collapsed) .sidebar-tab__icon {
     display: none;
   }
-  /* Show tab even when panel is open on mobile */
+  /* Hide tabs when panel is open on mobile */
   .sidebar:not(.is-collapsed) .sidebar-tab {
-    display: none; /* Hide the bottom bar tab when panel is open - use sidebar__tabs instead */
+    display: none;
   }
   /* Panel slides up from bottom */
   .sidebar__panel {
@@ -810,8 +869,8 @@ body {
   .sidebar__panel[hidden] {
     display: none !important;
   }
-  /* Tabs header on mobile */
-  .sidebar__tabs {
+  /* Panel header on mobile */
+  .sidebar__panel-header {
     flex-shrink: 0;
     min-height: var(--3xl);
   }
@@ -819,14 +878,10 @@ body {
   .sidebar__close {
     display: block !important;
   }
-  /* Tab content fills remaining space */
-  .sidebar__tab-content {
+  /* Sidebar content fills remaining space */
+  .sidebar__content {
     flex: 1;
     overflow-y: auto;
-  }
-  /* Hide desktop sidebar header on mobile (use tab instead) */
-  .sidebar__header {
-    display: none;
   }
   /* Animation for mobile bottom sheet */
   @keyframes bottomSheetSlide {
@@ -969,7 +1024,7 @@ body {
   }
 }
 .guest-card__body {
-  padding: 0;
+  padding-bottom: 10vh;
   overflow-y: auto;
   flex: 1;
 }
@@ -985,10 +1040,11 @@ body {
 }
 
 .guest-card__content {
-  padding: 1rem;
   font-size: var(--sm);
   line-height: 1.6;
+  padding-inline: 0.5rem;
   color: var(--text-body-light);
+  padding: 0.5rem 0.25rem;
 }
 .guest-card__content p {
   margin: 0 0 1rem 0;
@@ -1001,6 +1057,7 @@ body {
 .guest-card__social {
   margin: 0;
   font-size: var(--sm);
+  padding-right: 0.25rem;
   color: var(--text-body-light);
   text-align: right;
 }

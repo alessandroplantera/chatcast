@@ -4,20 +4,22 @@
   const threadSection = document.getElementById('col-center');
   const threadRoot = document.getElementById('message-thread-root');
   const sidebar = document.getElementById('col-right');
-  const sidebarPanel = document.getElementById('sidebar-panel');
-  
+
+  // About panel elements
+  const aboutPanel = document.getElementById('about-panel');
+  const aboutSidebarTab = document.querySelector('.js-about-tab-open');
+
+  // Guest panel elements
+  const guestPanel = document.getElementById('guest-panel');
+  const guestSidebarTab = document.getElementById('guest-sidebar-tab');
+  const guestSidebarTabLabel = document.getElementById('guest-sidebar-tab-label');
+  const guestPanelTitle = document.getElementById('guest-panel-title');
+
   // Guest card elements
   const guestCard = document.getElementById('guest-card');
   const guestCardTitle = document.getElementById('guest-card-title');
   const guestCardCover = document.getElementById('guest-card-cover');
   const guestCardContent = document.getElementById('guest-card-content');
-
-  // Sidebar tabs
-  const tabAbout = document.getElementById('sidebar-tab-about');
-  const tabGuest = document.getElementById('sidebar-tab-guest');
-  const guestTabTitle = document.getElementById('guest-tab-title');
-  const contentAbout = document.getElementById('sidebar-content-about');
-  const contentGuest = document.getElementById('sidebar-content-guest');
 
   // Preloaded guest data cache (from Notion)
   const guestCache = new Map();
@@ -59,31 +61,48 @@
      if (threadRoot) threadRoot.innerHTML = '';
   }
 
-  // Sidebar open/close
-  function openSidebar() {
-    if (!sidebar) return;
+  // About panel open/close
+  function openAboutPanel() {
+    if (!sidebar || !aboutPanel) return;
+    closeGuestPanel(); // Close guest panel if open
     sidebar.classList.remove('is-collapsed');
     sidebar.setAttribute('aria-expanded', 'true');
-    if (sidebarPanel) sidebarPanel.hidden = false;
+    aboutPanel.hidden = false;
     if (layout) layout.classList.remove('is-right-collapsed');
   }
 
+  function closeAboutPanel() {
+    if (!sidebar || !aboutPanel) return;
+    sidebar.classList.add('is-collapsed');
+    sidebar.setAttribute('aria-expanded', 'false');
+    aboutPanel.hidden = true;
+    if (layout) layout.classList.add('is-right-collapsed');
+  }
+
+  // Guest panel open/close
+  function openGuestPanel() {
+    if (!sidebar || !guestPanel) return;
+    closeAboutPanel(); // Close about panel if open
+    sidebar.classList.remove('is-collapsed');
+    sidebar.setAttribute('aria-expanded', 'true');
+    guestPanel.hidden = false;
+    if (layout) layout.classList.remove('is-right-collapsed');
+  }
+
+  function closeGuestPanel() {
+    if (!guestPanel) return;
+    guestPanel.hidden = true;
+    // Don't collapse sidebar here - let closeAboutPanel handle it if needed
+  }
+
+  // Close all panels and collapse sidebar
   function closeSidebar() {
     if (!sidebar) return;
     sidebar.classList.add('is-collapsed');
     sidebar.setAttribute('aria-expanded', 'false');
-    if (sidebarPanel) sidebarPanel.hidden = true;
+    if (aboutPanel) aboutPanel.hidden = true;
+    if (guestPanel) guestPanel.hidden = true;
     if (layout) layout.classList.add('is-right-collapsed');
-  }
-
-  function toggleSidebar() {
-    if (!sidebar) return;
-    const isCollapsed = sidebar.classList.contains('is-collapsed');
-    if (isCollapsed) {
-      openSidebar();
-    } else {
-      closeSidebar();
-    }
   }
 
   // Check if we're on mobile
@@ -252,13 +271,17 @@
   // ============================================
   // GUEST CARD (Notion CMS)
   // ============================================
-  
+
   function showGuestCard() {
     if (guestCard) {
       guestCard.classList.add('is-visible');
     }
+    // Show guest sidebar tab when collapsed
+    if (guestSidebarTab) {
+      guestSidebarTab.hidden = false;
+    }
   }
-  
+
   function hideGuestCard() {
     if (guestCard) {
       guestCard.classList.remove('is-visible');
@@ -267,26 +290,31 @@
       if (guestCardCover) guestCardCover.innerHTML = '';
       if (guestCardContent) guestCardContent.innerHTML = '';
     }
-    // Hide guest tab and switch to about
-    hideGuestTab();
+    // Hide guest sidebar tab
+    if (guestSidebarTab) {
+      guestSidebarTab.hidden = true;
+    }
+    // Close guest panel and collapse sidebar
+    closeGuestPanel();
+    closeSidebar();
   }
-  
+
   async function loadGuestInfo(guestName) {
     if (!guestName) return;
-    
+
     const cacheKey = guestName.toLowerCase();
-    
+
     // Check if we have it in cache (full data)
     const cached = guestCache.get(cacheKey);
     if (cached && !cached.partial) {
       renderGuestCard(cached);
-      switchToGuestTab();
+      openGuestPanel();
       return true;
     }
-    
+
     try {
       const res = await fetch(`/api/notion/page/${encodeURIComponent(guestName)}`);
-      
+
       if (!res.ok) {
         if (res.status === 404) {
           console.log(`No Notion page found for guest: ${guestName}`);
@@ -294,14 +322,14 @@
         }
         throw new Error(`HTTP ${res.status}`);
       }
-      
+
       const data = await res.json();
-      
+
       // Store full data in cache
       guestCache.set(cacheKey, { ...data, partial: false });
-      
+
       renderGuestCard(data);
-      switchToGuestTab();
+      openGuestPanel();
       return true;
     } catch (err) {
       console.error('Failed to load guest info:', err);
@@ -311,19 +339,24 @@
   
   function renderGuestCard(data) {
     if (!guestCard) return;
-    
+
     const guestName = data.title || 'Guest';
-    
+
     // Set title (hidden, for reference)
     if (guestCardTitle) {
       guestCardTitle.textContent = `<${guestName}>`;
     }
-    
-    // Set tab title
-    if (guestTabTitle) {
-      guestTabTitle.textContent = `<${guestName}>`;
+
+    // Set panel title
+    if (guestPanelTitle) {
+      guestPanelTitle.textContent = `<${guestName}>`;
     }
-    
+
+    // Set sidebar tab label
+    if (guestSidebarTabLabel) {
+      guestSidebarTabLabel.textContent = `<${guestName}>`;
+    }
+
     // Set cover image (use media first, then cover, then first file)
     if (guestCardCover) {
       const imageUrl = data.media || data.cover || (data.properties?.Media?.[0]);
@@ -333,20 +366,20 @@
         guestCardCover.innerHTML = '';
       }
     }
-    
+
     // Set content: use Description from properties, or page content, or fallback
     if (guestCardContent) {
       const description = data.properties?.Description;
       const socialHandle = data.properties?.['@'];
       const url = data.properties?.URL;
-      
+
       let html = '';
-      
+
       // Add description
       if (description) {
         html += `<p>${escapeHTML(description)}</p>`;
       }
-      
+
       // Add social handle as link (uses URL as href)
       if (socialHandle) {
         if (url) {
@@ -355,67 +388,24 @@
           html += `<p class="guest-card__social">${escapeHTML(socialHandle)}</p>`;
         }
       }
-      
+
       // Add page content if any
       if (data.content) {
         html += data.content;
       }
-      
+
       guestCardContent.innerHTML = html || '<p>No additional information available.</p>';
     }
-    
+
     showGuestCard();
-    openSidebar();
   }
 
   // ============================================
-  // SIDEBAR TABS
+  // HELPER FUNCTIONS
   // ============================================
-  
-  const tabsContainer = document.querySelector('.sidebar__tabs');
-  
-  function switchToAboutTab() {
-    // Only add is-active if there's a guest tab visible
-    const hasGuestTab = tabGuest && !tabGuest.hidden;
-    if (tabAbout) {
-      if (hasGuestTab) {
-        tabAbout.classList.add('is-active');
-      } else {
-        tabAbout.classList.remove('is-active');
-      }
-    }
-    if (tabGuest) tabGuest.classList.remove('is-active');
-    if (contentAbout) contentAbout.classList.add('is-active');
-    if (contentGuest) contentGuest.classList.remove('is-active');
-  }
-  
-  function switchToGuestTab() {
-    if (tabAbout) tabAbout.classList.remove('is-active');
-    if (tabGuest) {
-      tabGuest.classList.add('is-active');
-      tabGuest.hidden = false;
-    }
-    if (contentAbout) contentAbout.classList.remove('is-active');
-    if (contentGuest) contentGuest.classList.add('is-active');
-    // Add has-guest class to enable multi-tab styling
-    if (tabsContainer) tabsContainer.classList.add('has-guest');
-  }
-  
+
   function hasGuestData() {
     return guestCardTitle && guestCardTitle.textContent.trim() !== '';
-  }
-  
-  function showGuestTab() {
-    if (tabGuest) tabGuest.hidden = false;
-    if (tabsContainer) tabsContainer.classList.add('has-guest');
-  }
-  
-  function hideGuestTab() {
-    if (tabGuest) tabGuest.hidden = true;
-    // Remove has-guest class - ABOUT takes full width again
-    if (tabsContainer) tabsContainer.classList.remove('has-guest');
-    if (tabAbout) tabAbout.classList.remove('is-active'); // No active state when alone
-    switchToAboutTab();
   }
   
   // Extract guest name from click on user__guest element
@@ -626,36 +616,49 @@
           hideThread();
           return;
         }
-        if (e.target.closest('.js-sidebar-open')) {
+        // Open about panel
+        if (e.target.closest('.js-about-tab-open')) {
           e.preventDefault();
-          // On mobile, toggle instead of just open
           if (isMobile()) {
-            toggleSidebar();
+            // On mobile, toggle if already open
+            const isOpen = aboutPanel && !aboutPanel.hidden;
+            if (isOpen) {
+              closeAboutPanel();
+            } else {
+              openAboutPanel();
+            }
           } else {
-            openSidebar();
+            openAboutPanel();
           }
           return;
         }
-        if (e.target.closest('.js-sidebar-close')) {
+        // Close about panel
+        if (e.target.closest('.js-about-close')) {
           e.preventDefault();
-          closeSidebar();
+          closeAboutPanel();
           return;
         }
-        // Close guest card
-        if (e.target.closest('.js-guest-card-close')) {
+        // Open guest panel
+        if (e.target.closest('.js-guest-tab-open')) {
+          e.preventDefault();
+          if (isMobile()) {
+            // On mobile, toggle if already open
+            const isOpen = guestPanel && !guestPanel.hidden;
+            if (isOpen) {
+              closeGuestPanel();
+              closeSidebar();
+            } else {
+              openGuestPanel();
+            }
+          } else {
+            openGuestPanel();
+          }
+          return;
+        }
+        // Close guest panel
+        if (e.target.closest('.js-guest-close')) {
           e.preventDefault();
           hideGuestCard();
-          return;
-        }
-        // Tab clicks
-        if (e.target.closest('.js-tab-about')) {
-          e.preventDefault();
-          switchToAboutTab();
-          return;
-        }
-        if (e.target.closest('.js-tab-guest')) {
-          e.preventDefault();
-          switchToGuestTab();
           return;
         }
         // Click on guest name to load info from Notion

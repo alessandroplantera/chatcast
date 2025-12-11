@@ -30,11 +30,13 @@
 	margin: 0;
 	font-size: var(--sm);
 	line-height: 1.5;
+	padding: 0.5rem 0.25rem;
 	color: var(--text-body-light);
 }
 
 .about__credits {
 	margin: 0;
+	padding-right:0.5rem;
 	font-size: var(--sm);
 	color: var(--text-body-light);
 	text-align: right;

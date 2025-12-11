@@ -6,7 +6,7 @@ Suggestions
 
 
 Review
-	about scompare quando aperto guest e torna etichetta
+(x)	about scompare quando aperto guest e torna etichetta
 	Quali sono le regole secondo cui viene definito il colore dell'utente? (X)
 
 Todo
