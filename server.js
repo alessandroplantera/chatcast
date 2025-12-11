@@ -11,6 +11,8 @@ const handlebars = require("handlebars");
 const db = require("./src/messagesDb");
 // Import Notion CMS functions
 const notionCms = require("./src/notionCms");
+// Import Notion Sync
+const { startPeriodicSync, syncNotion, getSyncStatus } = require("./scripts/sync-notion");
 
 // Telegram Bot Setup
 let recordingHasStarted = false;
@@ -995,7 +997,36 @@ fastify.register(require("@fastify/cors")); // Enable CORS for frontend
 fastify.get("/", async (request, reply) => {
   try {
     const sessions = await db.getAllSessionsWithDetails();
-    return reply.view("homepage.hbs", { sessions });
+    
+    // Get user metadata from Notion for participants (still needed for non-authors)
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    // Enrich sessions with display names from DB cache (author) and Notion (participants)
+    const enrichedSessions = sessions.map(session => {
+      // Use cached DB values for author
+      const authorDisplay = session.author_display || session.author;
+      
+      // Enrich participants with display names
+      const enrichedParticipants = (session.participants || []).map(p => {
+        const meta = userMetadata.get(p.toLowerCase());
+        return {
+          original: p,
+          display: meta?.override || p,
+          isGuest: meta?.isGuest || false
+        };
+      });
+      
+      return {
+        ...session,
+        authorDisplay,
+        participantsEnriched: enrichedParticipants,
+        // Pass cached values for frontend
+        author_is_guest: Boolean(session.author_is_guest),
+        author_is_host: Boolean(session.author_is_host)
+      };
+    });
+    
+    return reply.view("homepage.hbs", { sessions: enrichedSessions });
   } catch (err) {
     console.error(err);
     return reply.view("homepage.hbs", { sessions: [] });
@@ -1074,18 +1105,74 @@ fastify.get("/messages", async (request, reply) => {
     const sessionId = request.query.session_id;
     const chatId = request.query.chat_id || "all";
 
+    // Get user metadata from Notion (fallback for users not in session table)
+    const userMetadata = await notionCms.getUserMetadata();
+
     // If a session ID is provided, prioritize filtering by session
     if (sessionId) {
-      const messages = await db.getMessagesBySession(sessionId);
+      let messages = await db.getMessagesBySession(sessionId);
       const sessionDetails = await db.getSessionDetails(sessionId);
+
+      // Enrich messages with Notion metadata (override names, status)
+      messages = messages.map(msg => {
+        // Try to get metadata from Notion
+        const metadata = userMetadata.get(msg.username.toLowerCase());
+        return {
+          ...msg,
+          displayName: metadata?.override || msg.username, // Override if exists
+          isGuest: metadata?.isGuest || false,
+          isHost: metadata?.isHost || false,
+          notionStatus: metadata?.status || []
+        };
+      });
+
+      // Build safe userMetadata object (only override/status, never real names)
+      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
+        acc[key] = {
+          override: val.override,
+          isGuest: val.isGuest,
+          isHost: val.isHost,
+          status: val.status
+        };
+        return acc;
+      }, {});
+
       return reply.send({
         session: sessionDetails,
-        messages: messages
+        messages: messages,
+        userMetadata: safeUserMetadata
       });
     } else {
       // Otherwise fall back to filtering by chat_id
-      const messages = await db.getMessages(chatId);
-      return reply.send({ session: null, messages: messages });
+      let messages = await db.getMessages(chatId);
+
+      // Enrich messages with Notion metadata
+      messages = messages.map(msg => {
+        const metadata = userMetadata.get(msg.username.toLowerCase());
+        return {
+          ...msg,
+          displayName: metadata?.override || msg.username,
+          isGuest: metadata?.isGuest || false,
+          isHost: metadata?.isHost || false,
+          notionStatus: metadata?.status || []
+        };
+      });
+
+      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
+        acc[key] = {
+          override: val.override,
+          isGuest: val.isGuest,
+          isHost: val.isHost,
+          status: val.status
+        };
+        return acc;
+      }, {});
+
+      return reply.send({
+        session: null,
+        messages: messages,
+        userMetadata: safeUserMetadata
+      });
     }
   } catch (err) {
     console.error(err);
@@ -1357,14 +1444,46 @@ fastify.get("/api/notion/pages", async (request, reply) => {
   }
 });
 
-// Preload all pages with FULL content (for faster guest clicks)
-fastify.get("/api/notion/pages/full", async (request, reply) => {
+// DEPRECATED - Endpoint removed for privacy (exposed real names)
+// Use /api/user-metadata instead
+
+// Get user metadata (safe - return both mappings)
+// - byOriginal: keys are the original username (lowercase) -> { originalName, displayName, isGuest, isHost }
+// - byDisplay: keys are the override/displayName (lowercase) -> { displayName, isGuest, isHost, originalName }
+fastify.get("/api/user-metadata", async (request, reply) => {
   try {
-    const pages = await notionCms.getAllPagesWithContent();
-    return reply.send({ count: pages.length, pages });
+    const userMetadata = await notionCms.getUserMetadata();
+
+    const byOriginal = {};
+    const byDisplay = {};
+
+    userMetadata.forEach((val, key) => {
+      // `key` is expected to be the original name lowercased as returned by notionCms
+      const originalKey = key;
+      const originalName = val.originalName || key;
+      const displayName = val.override || null;
+
+      byOriginal[originalKey] = {
+        originalName,
+        displayName,
+        isGuest: Boolean(val.isGuest),
+        isHost: Boolean(val.isHost)
+      };
+
+      if (displayName) {
+        byDisplay[displayName.toLowerCase()] = {
+          displayName,
+          isGuest: Boolean(val.isGuest),
+          isHost: Boolean(val.isHost),
+          originalName
+        };
+      }
+    });
+
+    return reply.send({ byOriginal, byDisplay });
   } catch (err) {
-    console.error("Error fetching all Notion pages with content:", err);
-    return reply.status(500).send({ error: "Error fetching pages" });
+    console.error("Error fetching user metadata:", err);
+    return reply.status(500).send({ error: "Error fetching metadata" });
   }
 });
 
@@ -1375,6 +1494,28 @@ fastify.post("/api/notion/clear-cache", async (request, reply) => {
     return reply.send({ success: true, message: "Notion cache cleared" });
   } catch (err) {
     return reply.status(500).send({ error: "Error clearing cache" });
+  }
+});
+
+// Manual sync endpoint (admin only)
+fastify.post("/admin/sync", async (request, reply) => {
+  try {
+    console.log('[Admin] Manual sync triggered');
+    const result = await syncNotion();
+    return reply.send({ success: true, result });
+  } catch (err) {
+    console.error("Error in manual sync:", err);
+    return reply.status(500).send({ error: "Error syncing with Notion" });
+  }
+});
+
+// Get sync status (for monitoring)
+fastify.get("/admin/sync-status", async (request, reply) => {
+  try {
+    const status = getSyncStatus();
+    return reply.send(status);
+  } catch (err) {
+    return reply.status(500).send({ error: "Error getting sync status" });
   }
 });
 
@@ -1404,6 +1545,9 @@ const start = async () => {
     // Avvia il server
     await fastify.listen({ port: process.env.PORT || 3000, host: "0.0.0.0" });
     console.log(`Server listening on ${fastify.server.address().port}`);
+
+    // Start Notion sync (runs initial sync + every 30 minutes)
+    startPeriodicSync();
 
     // Initialize Telegram bot AFTER server is running
     initializeTelegramBot();

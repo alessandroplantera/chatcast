@@ -24,6 +24,16 @@
   // Preloaded guest data cache (from Notion)
   const guestCache = new Map();
   let guestCacheLoaded = false;
+  
+  // User metadata cache (override names, status from Notion)
+  let userMetadataCache = {};
+  
+  // Helper to get display name with override
+  function getDisplayName(username) {
+    if (!username) return 'Anonymous';
+    const metadata = userMetadataCache[username.toLowerCase()];
+    return metadata?.override || metadata?.displayName || username;
+  }
 
   // Time management (used on homepage and potentially other views)
   function updateTime() {
@@ -118,45 +128,38 @@
     if (guestCacheLoaded) return;
     
     try {
-      // Use /full endpoint to get complete content (blocks, media, etc.)
-      const res = await fetch('/api/notion/pages/full');
+      // Fetch user metadata (server returns both mappings)
+      const res = await fetch('/api/user-metadata');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
+
       const data = await res.json();
-      
-      if (data.pages && Array.isArray(data.pages)) {
-        // Store FULL data in cache - no need to fetch again on click!
-        data.pages.forEach(page => {
-          if (page.title && page.title.toLowerCase() !== 'upcoming-chat') {
-            guestCache.set(page.title.toLowerCase(), {
-              ...page,
-              partial: false // Full data, ready to use!
-            });
-          }
+
+      // Prefer the byOriginal mapping (originalName lowercased -> meta)
+      if (data.byOriginal) {
+        Object.entries(data.byOriginal).forEach(([origKey, meta]) => {
+          // origKey is already lowercased
+          userMetadataCache[origKey] = {
+            override: meta.displayName || null,
+            isGuest: Boolean(meta.isGuest),
+            isHost: Boolean(meta.isHost),
+            originalName: meta.originalName || origKey
+          };
         });
         guestCacheLoaded = true;
-        console.log(`Notion: Preloaded ${guestCache.size} guests with full content`);
+      } else if (data.byDisplay) {
+        // Fallback: if only byDisplay is provided, populate cache keyed by display name
+        Object.entries(data.byDisplay).forEach(([displayKey, meta]) => {
+          userMetadataCache[meta.originalName.toLowerCase()] = {
+            override: meta.displayName || null,
+            isGuest: Boolean(meta.isGuest),
+            isHost: Boolean(meta.isHost),
+            originalName: meta.originalName
+          };
+        });
+        guestCacheLoaded = true;
       }
     } catch (err) {
-      console.error('Failed to preload Notion guests:', err);
-      // Fallback: try basic preload
-      try {
-        const res = await fetch('/api/notion/pages');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.pages) {
-            data.pages.forEach(page => {
-              if (page.title && page.title.toLowerCase() !== 'upcoming-chat') {
-                guestCache.set(page.title.toLowerCase(), { ...page, partial: true });
-              }
-            });
-            guestCacheLoaded = true;
-            console.log(`Notion: Fallback preload ${guestCache.size} guests (partial)`);
-          }
-        }
-      } catch (e) {
-        console.error('Fallback preload also failed:', e);
-      }
+      console.error('Failed to preload user metadata:', err);
     }
   }
 
@@ -222,23 +225,69 @@
   }
   
   /**
-   * Find guest names in text and wrap them with clickable spans
+   * Find guest/host names in text and wrap them with clickable spans
+   * Searches for BOTH original names and override names in the text
+   * Always uses original name in data-guest-name for Notion lookup
+   * Applies correct styling: violet for guests, white for hosts
    */
   function linkifyGuestNames(text) {
-    if (!text || guestCache.size === 0) return escapeHTML(text);
-    
+    if (!text || (guestCache.size === 0 && Object.keys(userMetadataCache).length === 0)) return escapeHTML(text);
+
     let result = escapeHTML(text);
+
+    // Build list of all names (original + override) with metadata
+    const nameMatches = [];
+
+    if (guestCache.size > 0) {
+      for (const guest of guestCache.values()) {
+        const originalName = guest.title;
+        if (!originalName) continue;
+
+        const displayName = getDisplayName(originalName);
+        const metadata = userMetadataCache[originalName.toLowerCase()];
+        const isGuest = metadata?.isGuest === true;
+        const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+
+        // Add both original and override (if different) to search
+        nameMatches.push({
+          searchTerm: originalName,
+          originalName,
+          displayName,
+          userClass
+        });
+
+        // If override exists and is different, also search for it
+        if (metadata?.override && metadata.override !== originalName) {
+          nameMatches.push({
+            searchTerm: metadata.override,
+            originalName, // IMPORTANT: still use original for data-guest-name
+            displayName,
+            userClass
+          });
+        }
+      }
+    } else {
+      // Fallback to using userMetadataCache to build matches keyed by originalName
+      for (const [origKey, meta] of Object.entries(userMetadataCache)) {
+        const originalName = meta.originalName || origKey;
+        const displayName = meta.override || meta.displayName || originalName;
+        const isGuest = meta.isGuest === true;
+        const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+
+        nameMatches.push({ searchTerm: originalName, originalName, displayName, userClass });
+        if (displayName && displayName !== originalName) {
+          nameMatches.push({ searchTerm: displayName, originalName, displayName, userClass });
+        }
+      }
+    }
     
-    // Sort by name length (longest first) to avoid partial replacements
-    const guestNames = Array.from(guestCache.values())
-      .map(g => g.title)
-      .filter(Boolean)
-      .sort((a, b) => b.length - a.length);
+    // Sort by search term length (longest first) to avoid partial replacements
+    nameMatches.sort((a, b) => b.searchTerm.length - a.searchTerm.length);
     
-    for (const name of guestNames) {
-      // Case-insensitive search, but preserve original case in output
-      const regex = new RegExp(`(${escapeRegex(name)})`, 'gi');
-      result = result.replace(regex, `<span class="js-guest-name guest-link" data-guest-name="${escapeHTML(name)}">&lt;$1&gt;</span>`);
+    for (const match of nameMatches) {
+      // Case-insensitive search for the term
+      const regex = new RegExp(`(${escapeRegex(match.searchTerm)})`, 'gi');
+      result = result.replace(regex, `<span class="${match.userClass}" data-guest-name="${escapeHTML(match.originalName)}">&lt;${escapeHTML(match.displayName)}&gt;</span>`);
     }
     
     return result;
@@ -340,28 +389,29 @@
   function renderGuestCard(data) {
     if (!guestCard) return;
 
-    const guestName = data.title || 'Guest';
+    const originalName = data.title || 'Guest';
+    const displayName = getDisplayName(originalName); // Use override if available
 
     // Set title (hidden, for reference)
     if (guestCardTitle) {
-      guestCardTitle.textContent = `<${guestName}>`;
+      guestCardTitle.textContent = `<${displayName}>`;
     }
 
-    // Set panel title
+    // Set panel title (use override)
     if (guestPanelTitle) {
-      guestPanelTitle.textContent = `<${guestName}>`;
+      guestPanelTitle.textContent = `<${displayName}>`;
     }
 
-    // Set sidebar tab label
+    // Set sidebar tab label (use override)
     if (guestSidebarTabLabel) {
-      guestSidebarTabLabel.textContent = `<${guestName}>`;
+      guestSidebarTabLabel.textContent = `<${displayName}>`;
     }
 
     // Set cover image (use media first, then cover, then first file)
     if (guestCardCover) {
       const imageUrl = data.media || data.cover || (data.properties?.Media?.[0]);
       if (imageUrl) {
-        guestCardCover.innerHTML = `<img src="${imageUrl}" alt="${escapeHTML(guestName)}" />`;
+        guestCardCover.innerHTML = `<img src="${imageUrl}" alt="${escapeHTML(displayName)}" />`;
       } else {
         guestCardCover.innerHTML = '';
       }
@@ -409,12 +459,6 @@
   }
   
   // Extract guest name from click on user__guest element
-  function getGuestNameFromElement(el) {
-    const text = el.textContent || '';
-    // Remove < and > brackets
-    return text.replace(/^<|>$/g, '').trim();
-  }
-
   function fmtTime(iso) {
     try {
       const d = new Date(iso);
@@ -432,7 +476,7 @@
   }
 
   // Populate selected message thread
-  function renderMessages(messages, hostAuthor) {
+  function renderMessages(messages) {
     if (!threadRoot) return;
     if (!Array.isArray(messages) || messages.length === 0) {
       threadRoot.innerHTML = '<div class="message-thread__empty">No messages in this conversation.</div>';
@@ -440,17 +484,24 @@
     }
 
     const html = messages.map(m => {
-      const author = escapeHTML(m.username || 'Anonymous');
+      // Use displayName from Notion override, fallback to username
+      const displayName = escapeHTML(m.displayName || m.username || 'Anonymous');
+      const originalName = escapeHTML(m.username || 'Anonymous');
       const content = escapeHTML(m.message || '');
       const time = fmtTime(m.date || m.sent_at);
-      const isGuest = hostAuthor ? (author !== hostAuthor) : true;
+
+      // Use ONLY Notion status (isGuest from backend)
+      const isGuest = m.isGuest === true;
+
       const alignClass = isGuest ? 'message-thread__message--guest' : 'message-thread__message--host';
-      const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge';
-      const displayName = `&lt;${author}&gt;`;
+      // All clickable, guests are violet
+      const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+      const formattedName = `&lt;${displayName}&gt;`;
+
       return `
         <div class="message-thread__message ${alignClass}">
           <div class="message-thread__header">
-            <span class="message-thread__username ${userClass}" data-guest-name="${author}">${displayName}</span>
+            <span class="message-thread__username ${userClass}" data-guest-name="${originalName}">${formattedName}</span>
           </div>
           <div class="message-thread__content">${content}</div>
           <time class="message-thread__timestamp">${time}</time>
@@ -461,31 +512,53 @@
   }
 
   // Render thread header with session info
-  function renderThreadHeader(session) {
+  function renderThreadHeader(session, userMetadata = {}) {
     const headerContent = document.getElementById('thread-header-content');
     if (!headerContent || !session) return;
 
-    const author = escapeHTML(session.author || 'Host');
+    // Helper to get display name with Notion override
+    const getDisplayName = (username) => {
+      const metadata = userMetadata[username?.toLowerCase()];
+      return escapeHTML(metadata?.override || username || 'Anonymous');
+    };
+
+    // Helper to check if user is guest from Notion
+    const isGuestFromNotion = (username) => {
+      const metadata = userMetadata[username?.toLowerCase()];
+      return metadata?.isGuest === true;
+    };
+
+    const authorDisplay = getDisplayName(session.author);
     const title = escapeHTML(session.title || `Conversation ${session.session_id}`);
     const participants = session.participants || [];
     const messageCount = session.message_count || 0;
     const status = session.status || 'archived';
     const startDate = session.start_date ? formatDate(session.start_date) : 'No date available';
 
-    // Filter out the author from participants
+    // Filter out the author from participants and apply overrides
     const guests = participants.filter(p => p !== session.author);
     const guestHtml = guests.length > 0
-      ? guests.map(g => `<span class="user-badge user__guest js-guest-name" data-guest-name="${escapeHTML(g)}">&lt;${escapeHTML(g)}&gt;</span>`).join(' ')
+      ? guests.map(g => {
+          const guestDisplay = getDisplayName(g);
+          const isGuest = isGuestFromNotion(g);
+          // All clickable, guests are violet
+          const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+          return `<span class="${userClass}" data-guest-name="${escapeHTML(g)}">&lt;${guestDisplay}&gt;</span>`;
+        }).join(' ')
       : '<span class="user-badge user__guest">&lt;Guest&gt;</span>';
 
     const statusLabel = status === 'active' ? 'Live' : status === 'paused' ? 'Paused' : 'Archived';
     const messagesLabel = messageCount === 1 ? '1 message' : `${messageCount} messages`;
 
+    // Check if author is guest from Notion
+    const isAuthorGuest = isGuestFromNotion(session.author);
+    const authorClass = isAuthorGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+    
     headerContent.innerHTML = `
       <div class="conversation-list__header">
         <div>
           <div class="conversation-list__header-title">
-            <span class="user-badge">&lt;${author}&gt;</span> and ${guestHtml} talking about ${title}
+            <span class="${authorClass}" data-guest-name="${escapeHTML(session.author)}">&lt;${authorDisplay}&gt;</span> and ${guestHtml} talking about ${title}
           </div>
         </div>
       </div>
@@ -521,13 +594,56 @@
       const res = await fetch(`/messages?session_id=${encodeURIComponent(sessionId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      renderThreadHeader(data.session);
-      renderMessages(data.messages, data.session?.author);
+
+      // Update userMetadataCache with correct data from /messages endpoint
+      if (data.userMetadata) {
+        Object.entries(data.userMetadata).forEach(([key, val]) => {
+          userMetadataCache[key] = val;
+        });
+        // cache updated
+      }
+
+      // Pass userMetadata to header rendering for name overrides
+      renderThreadHeader(data.session, data.userMetadata);
+      renderMessages(data.messages);
       showThread();
     } catch (err) {
       console.error('Failed to load thread', err);
       if (threadRoot) threadRoot.innerHTML = `<div class="message-thread__error">Failed to load messages: ${escapeHTML(err.message)}</div>`;
       showThread();
+    }
+  }
+
+  // Apply override display names to conversation list items and banner
+  function applyOverridesToConversationList() {
+    try {
+      // Conversation list badges
+      const badges = document.querySelectorAll('.conversation-list__item .user-badge');
+      badges.forEach(el => {
+        const originalName = (el.getAttribute('data-guest-name') || '').trim();
+        if (!originalName) return;
+        const meta = userMetadataCache[originalName.toLowerCase()];
+        if (meta && meta.override && meta.override !== originalName) {
+          el.innerHTML = `&lt;${escapeHTML(meta.override)}&gt;`;
+        }
+      });
+
+      // Upcoming chat banner participants (if present)
+      const bannerParticipants = document.getElementById('upcoming-chat-participants');
+      if (bannerParticipants && bannerParticipants.innerHTML) {
+        // Replace any occurrences of original names with their overrides
+        let html = bannerParticipants.innerHTML;
+        for (const [origKey, meta] of Object.entries(userMetadataCache)) {
+          const orig = meta.originalName || origKey;
+          const override = meta.override;
+          if (!override || override === orig) continue;
+          const re = new RegExp(escapeRegex(escapeHTML(orig)), 'gi');
+          html = html.replace(re, escapeHTML(override));
+        }
+        bannerParticipants.innerHTML = html;
+      }
+    } catch (err) {
+      console.error('Error applying overrides to conversation list:', err);
     }
   }
 
@@ -602,10 +718,13 @@
   }
 
   // Init
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', async function () {
     startTimeUpdates();
-    loadUpcomingChatBanner(); // Load banner from Notion
-    preloadNotionGuests(); // Preload guest data for faster clicks
+    // Preload metadata first, then apply overrides to server-rendered HTML
+    await preloadNotionGuests(); // Populate userMetadataCache
+    applyOverridesToConversationList(); // Update conversation list and banner text
+    // Then load banner (which also uses linkifyGuestNames and can rely on cache)
+    await loadUpcomingChatBanner(); // Load banner from Notion
     // setupHoverEffects();
 
     const hasInline = !!(threadSection && threadRoot);
@@ -661,14 +780,15 @@
           hideGuestCard();
           return;
         }
-        // Click on guest name to load info from Notion
+        // Click on guest/host name to load info from Notion
         if (e.target.closest('.js-guest-name')) {
           e.preventDefault();
           e.stopPropagation();
           const guestEl = e.target.closest('.js-guest-name');
-          const guestName = guestEl.getAttribute('data-guest-name') || getGuestNameFromElement(guestEl);
-          if (guestName) {
-            loadGuestInfo(guestName);
+          // Always use data-guest-name (original name) for Notion lookup
+          const originalName = guestEl.getAttribute('data-guest-name');
+          if (originalName) {
+            loadGuestInfo(originalName);
           }
           return;
         }

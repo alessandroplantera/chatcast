@@ -1,8 +1,10 @@
 {{!-- 
   User Badge Atom
-  Usage: {{> components/atoms/user-badge name="Username" guest=true }}
+  Usage: {{> components/atoms/user-badge name="Username" guest=true original="Original Name" }}
   
-  @param name - The username to display
-  @param guest - Boolean, if true applies guest styling (clickable to show guest info)
+  @param name - The display name (with override applied)
+  @param original - The original name (for data-guest-name attribute)
+  @param guest - Boolean, if true applies guest violet styling, otherwise white
+  All badges are now clickable (js-guest-name)
 --}}
-<span class="user-badge{{#if guest}} user__guest js-guest-name{{/if}}"{{#if guest}} data-guest-name="{{name}}"{{/if}}>{{#if guest}}&lt;{{name}}&gt;{{else}}{{name}}{{/if}}</span>
+<span class="user-badge js-guest-name{{#if guest}} user__guest{{/if}}" data-guest-name="{{#if original}}{{original}}{{else}}{{name}}{{/if}}">&lt;{{name}}&gt;</span>

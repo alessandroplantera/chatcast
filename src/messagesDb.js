@@ -111,14 +111,74 @@ async function initializeDb() {
                 }
                 
                 const hasAuthor = sessionsInfo.some(column => column.name === 'author');
+                const hasAuthorDisplay = sessionsInfo.some(column => column.name === 'author_display');
+                const hasAuthorIsGuest = sessionsInfo.some(column => column.name === 'author_is_guest');
+                const hasAuthorIsHost = sessionsInfo.some(column => column.name === 'author_is_host');
+                
+                const migrations = [];
                 
                 if (!hasAuthor) {
-                  console.log("Adding author column to Sessions table...");
-                  db.run("ALTER TABLE Sessions ADD COLUMN author TEXT", (err) => {
-                    if (err) console.error("Error adding author column:", err);
-                    else console.log("author column added successfully.");
-                    resolve();
-                  });
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author TEXT", (err) => {
+                      if (err) {
+                        console.error("Error adding author column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorDisplay) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_display column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_display TEXT", (err) => {
+                      if (err) {
+                        console.error("Error adding author_display column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_display column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorIsGuest) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_is_guest column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_is_guest INTEGER DEFAULT 0", (err) => {
+                      if (err) {
+                        console.error("Error adding author_is_guest column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_is_guest column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorIsHost) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_is_host column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_is_host INTEGER DEFAULT 0", (err) => {
+                      if (err) {
+                        console.error("Error adding author_is_host column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_is_host column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (migrations.length > 0) {
+                  Promise.all(migrations).then(() => resolve()).catch(() => resolve());
                 } else {
                   resolve();
                 }
@@ -527,6 +587,69 @@ async function checkAndFixSessionStatuses() {
   });
 }
 
+// Update author metadata from Notion sync
+async function updateSessionAuthorMetadata(sessionId, metadata) {
+  return new Promise((resolve, reject) => {
+    const { displayName, isGuest, isHost } = metadata;
+    
+    db.run(
+      `UPDATE Sessions 
+       SET author_display = ?, author_is_guest = ?, author_is_host = ? 
+       WHERE session_id = ?`,
+      [displayName || null, isGuest ? 1 : 0, isHost ? 1 : 0, sessionId],
+      function(err) {
+        if (err) {
+          console.error(`Error updating author metadata for session ${sessionId}:`, err);
+          reject(err);
+          return;
+        }
+        resolve({ updated: this.changes });
+      }
+    );
+  });
+}
+
+// Bulk update all sessions with Notion metadata
+async function syncAllSessionsWithNotion(userMetadataMap) {
+  return new Promise((resolve, reject) => {
+    db.all("SELECT session_id, author FROM Sessions", [], async (err, sessions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      let updated = 0;
+      let skipped = 0;
+      
+      for (const session of sessions) {
+        if (!session.author) {
+          skipped++;
+          continue;
+        }
+        
+        const metadata = userMetadataMap.get(session.author.toLowerCase());
+        if (metadata) {
+          try {
+            await updateSessionAuthorMetadata(session.session_id, {
+              displayName: metadata.override || metadata.originalName,
+              isGuest: metadata.isGuest,
+              isHost: metadata.isHost
+            });
+            updated++;
+          } catch (err) {
+            console.error(`Failed to update session ${session.session_id}:`, err);
+          }
+        } else {
+          skipped++;
+        }
+      }
+      
+      console.log(`Notion sync complete: ${updated} sessions updated, ${skipped} skipped`);
+      resolve({ updated, skipped, total: sessions.length });
+    });
+  });
+}
+
 module.exports = {
   saveMessage,
   getMessages,
@@ -538,5 +661,7 @@ module.exports = {
   saveSession,
   getSession,
   getAllSessions,
-  checkAndFixSessionStatuses
+  checkAndFixSessionStatuses,
+  updateSessionAuthorMetadata,
+  syncAllSessionsWithNotion
 };

@@ -351,6 +351,38 @@ async function getAllPagesWithContent() {
 }
 
 /**
+ * Get user metadata from Notion (Status, Override)
+ * Returns a Map with username (lowercase) as key
+ */
+async function getUserMetadata() {
+  try {
+    const pages = await getAllPages();
+    const userMap = new Map();
+
+    for (const page of pages) {
+      const name = page.title;
+      if (!name || name.toLowerCase() === 'upcoming-chat') continue;
+
+      const status = page.properties?.Status; // Array: ['Guest'] or ['Host'] or []
+      const override = page.properties?.Override; // String
+
+      userMap.set(name.toLowerCase(), {
+        originalName: name,
+        status: status && status.length > 0 ? status : [],
+        override: override || null,
+        isGuest: status && status.includes('Guest'),
+        isHost: status && status.includes('Host')
+      });
+    }
+
+    return userMap;
+  } catch (err) {
+    console.error('Error fetching Notion user metadata:', err);
+    return new Map();
+  }
+}
+
+/**
  * Clear the cache (useful for forcing refresh)
  */
 function clearCache() {
@@ -363,5 +395,6 @@ module.exports = {
   getUpcomingChat,
   getAllPages,
   getAllPagesWithContent,
+  getUserMetadata,
   clearCache
 };

@@ -16,6 +16,7 @@
     "db:backup": "node scripts/db-backup.js",
     "db:reset": "node scripts/db-reset.js",
     "db:status": "node scripts/db-status.js",
+	"db:seed": "node scripts/utils/db-seed.js",
     "deploy": "npm run db:backup && npm run build"
   },
   "dependencies": {
