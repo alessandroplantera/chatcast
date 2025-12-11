@@ -4,7 +4,7 @@
  * Runs periodically to keep the database cache up to date without exposing real names to frontend
  */
 
-const { getUserMetadata } = require('../src/notionCms');
+const { getUserMetadata, clearCache } = require('../src/notionCms');
 const { syncAllSessionsWithNotion } = require('../src/messagesDb');
 
 let syncInProgress = false;
@@ -25,6 +25,12 @@ async function syncNotion() {
     const startTime = Date.now();
     
     console.log('[Notion Sync] Starting sync from Notion to database...');
+    // Always clear Notion cache before syncing so we pick up fresh changes
+    try {
+      clearCache();
+    } catch (e) {
+      console.warn('[Notion Sync] Failed to clear Notion cache before sync:', e && e.message ? e.message : e);
+    }
     
     // Fetch user metadata from Notion
     const userMetadataMap = await getUserMetadata();
