@@ -33,6 +33,15 @@ function isAdminUser(userId) {
   return ADMIN_TELEGRAM_USERS.includes(userId);
 }
 
+// Helper to check admin API key for HTTP endpoints
+function isAdminRequest(request) {
+  const adminKeyHeader = request.headers['x-admin-key'] || request.headers['x-admin-token'];
+  const adminKeyQuery = request.query && request.query.admin_key;
+  const expected = process.env.ADMIN_API_KEY || null;
+  if (!expected) return false; // no admin key configured
+  return (adminKeyHeader && adminKeyHeader === expected) || (adminKeyQuery && adminKeyQuery === expected);
+}
+
 // Helper function to get user info for logging
 function getUserInfo(ctx) {
   return {
@@ -1003,19 +1012,25 @@ fastify.get("/", async (request, reply) => {
     
     // Enrich sessions with display names from DB cache (author) and Notion (participants)
     const enrichedSessions = sessions.map(session => {
-      // Use cached DB values for author
-      const authorDisplay = session.author_display || session.author;
-      
+      // Use cached DB values for author if present, otherwise try Notion metadata
+      let authorDisplay = session.author_display || session.author;
+      if ((!authorDisplay || authorDisplay === session.author) && session.author) {
+        const metaForAuthor = userMetadata.get(String(session.author).toLowerCase());
+        if (metaForAuthor) {
+          authorDisplay = metaForAuthor.override || metaForAuthor.originalName || session.author;
+        }
+      }
+
       // Enrich participants with display names
       const enrichedParticipants = (session.participants || []).map(p => {
-        const meta = userMetadata.get(p.toLowerCase());
+        const meta = userMetadata.get(String(p).toLowerCase());
         return {
           original: p,
           display: meta?.override || p,
           isGuest: meta?.isGuest || false
         };
       });
-      
+
       return {
         ...session,
         authorDisplay,
@@ -1201,7 +1216,24 @@ fastify.get("/messages-view", async (request, reply) => {
     }
 
     const sessionDetails = await db.getSessionDetails(sessionId);
-    const messages = await db.getMessagesBySession(sessionId);
+    let messages = await db.getMessagesBySession(sessionId);
+
+    // Enrich messages with Notion metadata (displayName, isGuest, isHost)
+    try {
+      const userMetadata = await notionCms.getUserMetadata();
+      messages = messages.map(msg => {
+        const meta = userMetadata.get(String(msg.username).toLowerCase());
+        return {
+          ...msg,
+          displayName: meta?.override || msg.username,
+          isGuest: meta?.isGuest || false,
+          isHost: meta?.isHost || false
+        };
+      });
+    } catch (e) {
+      // If Notion fails, fall back to raw messages
+      console.error('Failed to enrich messages for messages-view:', e && e.message ? e.message : e);
+    }
 
     return reply.view("messages.hbs", {
       session: sessionDetails,
@@ -1436,6 +1468,7 @@ fastify.get("/api/notion/upcoming-chat", async (request, reply) => {
 // List all pages (for debugging/admin)
 fastify.get("/api/notion/pages", async (request, reply) => {
   try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
     const pages = await notionCms.getAllPages();
     return reply.send({ count: pages.length, pages });
   } catch (err) {
@@ -1480,9 +1513,52 @@ fastify.get("/api/user-metadata", async (request, reply) => {
       }
     });
 
-    return reply.send({ byOriginal, byDisplay });
+    // For privacy: public endpoint returns only byDisplay WITHOUT originalName
+    const safeByDisplay = {};
+    Object.entries(byDisplay).forEach(([k, v]) => {
+      safeByDisplay[k] = { displayName: v.displayName, isGuest: v.isGuest, isHost: v.isHost };
+    });
+
+    return reply.send({ byDisplay: safeByDisplay });
   } catch (err) {
     console.error("Error fetching user metadata:", err);
+    return reply.status(500).send({ error: "Error fetching metadata" });
+  }
+});
+
+// Admin-only: full user metadata (original + display mapping) - requires ADMIN_API_KEY header or ?admin_key=
+fastify.get("/api/user-metadata/admin", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    const userMetadata = await notionCms.getUserMetadata();
+
+    const byOriginal = {};
+    const byDisplay = {};
+    userMetadata.forEach((val, key) => {
+      const originalKey = key;
+      const originalName = val.originalName || key;
+      const displayName = val.override || null;
+
+      byOriginal[originalKey] = {
+        originalName,
+        displayName,
+        isGuest: Boolean(val.isGuest),
+        isHost: Boolean(val.isHost)
+      };
+
+      if (displayName) {
+        byDisplay[displayName.toLowerCase()] = {
+          displayName,
+          isGuest: Boolean(val.isGuest),
+          isHost: Boolean(val.isHost),
+          originalName
+        };
+      }
+    });
+
+    return reply.send({ byOriginal, byDisplay });
+  } catch (err) {
+    console.error("Error fetching admin user metadata:", err);
     return reply.status(500).send({ error: "Error fetching metadata" });
   }
 });
@@ -1490,6 +1566,7 @@ fastify.get("/api/user-metadata", async (request, reply) => {
 // Clear Notion cache (force refresh)
 fastify.post("/api/notion/clear-cache", async (request, reply) => {
   try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
     notionCms.clearCache();
     return reply.send({ success: true, message: "Notion cache cleared" });
   } catch (err) {
@@ -1500,6 +1577,7 @@ fastify.post("/api/notion/clear-cache", async (request, reply) => {
 // Manual sync endpoint (admin only)
 fastify.post("/admin/sync", async (request, reply) => {
   try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
     console.log('[Admin] Manual sync triggered');
     const result = await syncNotion();
     return reply.send({ success: true, result });
@@ -1512,6 +1590,7 @@ fastify.post("/admin/sync", async (request, reply) => {
 // Get sync status (for monitoring)
 fastify.get("/admin/sync-status", async (request, reply) => {
   try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
     const status = getSyncStatus();
     return reply.send(status);
   } catch (err) {
@@ -1547,7 +1626,8 @@ const start = async () => {
     console.log(`Server listening on ${fastify.server.address().port}`);
 
     // Start Notion sync (runs initial sync + every 30 minutes)
-    startPeriodicSync();
+    // startPeriodicSync returns an interval id so we can clear it on shutdown
+    const notionSyncIntervalId = startPeriodicSync();
 
     // Initialize Telegram bot AFTER server is running
     initializeTelegramBot();
@@ -1572,6 +1652,7 @@ const start = async () => {
     process.once("SIGINT", () => {
       console.log("Received SIGINT, stopping server...");
       clearInterval(sessionCheckInterval);
+      try { if (notionSyncIntervalId) clearInterval(notionSyncIntervalId); } catch (e) {}
       fastify.close();
       if (bot) bot.stop("SIGINT");
     });
@@ -1579,6 +1660,7 @@ const start = async () => {
     process.once("SIGTERM", () => {
       console.log("Received SIGTERM, stopping server...");
       clearInterval(sessionCheckInterval);
+      try { if (notionSyncIntervalId) clearInterval(notionSyncIntervalId); } catch (e) {}
       fastify.close();
       if (bot) bot.stop("SIGTERM");
     });

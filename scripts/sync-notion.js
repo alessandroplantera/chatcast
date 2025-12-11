@@ -65,22 +65,26 @@ async function syncNotion() {
  * Start periodic sync (every 30 minutes)
  */
 function startPeriodicSync() {
-  const SYNC_INTERVAL = 30 * 60 * 1000; // 30 minutes in milliseconds
-  
-  console.log('[Notion Sync] Starting periodic sync (every 30 minutes)...');
-  
+  const defaultInterval = 30 * 60 * 1000; // 30 minutes in milliseconds
+  const SYNC_INTERVAL = process.env.NOTION_SYNC_INTERVAL_MS ? parseInt(process.env.NOTION_SYNC_INTERVAL_MS, 10) : defaultInterval;
+
+  console.log(`[Notion Sync] Starting periodic sync (interval ${SYNC_INTERVAL}ms)...`);
+
   // Run initial sync
   syncNotion().then(result => {
     console.log('[Notion Sync] Initial sync completed:', result);
   });
-  
+
   // Schedule periodic syncs
-  setInterval(() => {
+  const intervalId = setInterval(() => {
     console.log('[Notion Sync] Running scheduled sync...');
     syncNotion().then(result => {
       console.log('[Notion Sync] Scheduled sync completed:', result);
     });
   }, SYNC_INTERVAL);
+
+  // Return the interval id so the caller can clear it if needed
+  return intervalId;
 }
 
 /**

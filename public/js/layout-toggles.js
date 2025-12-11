@@ -147,13 +147,18 @@
         });
         guestCacheLoaded = true;
       } else if (data.byDisplay) {
-        // Fallback: if only byDisplay is provided, populate cache keyed by display name
+        // Fallback: if only byDisplay is provided, populate cache keyed by the best available
+        // key. The public `byDisplay` response may omit `originalName` (for privacy),
+        // so guard against calling toLowerCase on undefined and fall back to the
+        // displayKey when originalName is missing.
         Object.entries(data.byDisplay).forEach(([displayKey, meta]) => {
-          userMetadataCache[meta.originalName.toLowerCase()] = {
-            override: meta.displayName || null,
-            isGuest: Boolean(meta.isGuest),
-            isHost: Boolean(meta.isHost),
-            originalName: meta.originalName
+          const originalName = meta?.originalName || displayKey;
+          const key = (originalName || displayKey).toLowerCase();
+          userMetadataCache[key] = {
+            override: meta?.displayName || null,
+            isGuest: Boolean(meta?.isGuest),
+            isHost: Boolean(meta?.isHost),
+            originalName: meta?.originalName || displayKey
           };
         });
         guestCacheLoaded = true;

@@ -287,17 +287,26 @@ async function getAllPages() {
   if (cached) return cached;
 
   try {
-    console.log('Notion: Querying database:', DATABASE_ID);
-    const response = await notion.databases.query({
-      database_id: DATABASE_ID,
-      page_size: 100
-    });
+    console.log('Notion: Querying database (paginated):', DATABASE_ID);
+    let allResults = [];
+    let cursor = undefined;
+    do {
+      const response = await notion.databases.query({
+        database_id: DATABASE_ID,
+        page_size: 100,
+        start_cursor: cursor
+      });
+      if (response && Array.isArray(response.results)) {
+        allResults = allResults.concat(response.results);
+      }
+      cursor = response.has_more ? response.next_cursor : undefined;
+    } while (cursor);
 
     // Cache raw results for getPageByTitle
-    setCache('all-pages-raw', response.results);
-    console.log('Notion: Raw response results count:', response.results.length);
+    setCache('all-pages-raw', allResults);
+    console.log('Notion: Raw response results count:', allResults.length);
 
-    const pages = response.results.map(page => ({
+    const pages = allResults.map(page => ({
       id: page.id,
       title: getPageTitle(page),
       properties: extractProperties(page.properties),

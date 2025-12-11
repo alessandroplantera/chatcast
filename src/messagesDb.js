@@ -191,6 +191,24 @@ async function initializeDb() {
   });
 }
 
+// Create useful indexes if not present
+function createIndexes() {
+  try {
+    db.run("CREATE INDEX IF NOT EXISTS idx_messages_username ON Messages(username)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_sessions_author ON Sessions(author)");
+    console.log('Database indexes ensured');
+  } catch (err) {
+    console.error('Error creating indexes:', err);
+  }
+}
+
+// Ensure indexes after DB init
+setTimeout(() => {
+  try {
+    if (db) createIndexes();
+  } catch (e) { /* ignore */ }
+}, 1000);
+
 // Initialize database on module load
 initializeDb().catch((err) => {
   console.error("Error initializing database:", err);
