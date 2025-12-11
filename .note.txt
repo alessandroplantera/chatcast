@@ -1,0 +1,13 @@
+Behaviours
+	
+
+Suggestions
+	Caricare foto di basse dimensioni/webp (https://convertio.co/it/jpeg-webp/)
+
+
+Review
+	about scompare quando aperto guest e torna etichetta
+	Quali sono le regole secondo cui viene definito il colore dell'utente? (X)
+
+Todo
+	About section deve prendere meno spazio in larghezza
