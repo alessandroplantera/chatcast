@@ -1,0 +1,56 @@
+<div class="conversation-list__item" data-session-id="{{this.session_id}}">
+		<div class="conversation-list__header">
+			<div>
+				<div class="conversation-list__header-title">
+					{{! Author with override: use authorDisplay for display, author for data-guest-name }}
+					{{#if this.authorDisplay}}{{> components/atoms/user-badge name=this.authorDisplay original=this.author }}{{else}}{{#if this.author}}{{> components/atoms/user-badge name=this.author }}{{else}}{{> components/atoms/user-badge name="Host" }}{{/if}}{{/if}} and {{#if this.participantsEnriched.length}}{{#each
+					this.participantsEnriched}}{{#if (ne this.original
+					../author)}}{{> components/atoms/user-badge name=this.display original=this.original guest=this.isGuest }}{{#unless @last}}
+					{{/unless}}{{/if}}{{/each}}{{else}}
+					{{> components/atoms/user-badge name="Guest" guest=true }}{{/if}} talking about {{#if
+					this.title}}{{this.title}}{{else}}Conversation
+					{{this.session_id}}{{/if}}
+				</div>
+			</div>
+		</div>
+
+		<div class="conversation-list__meta">
+			<div class="conversation-list__meta-info">
+				<div class="infos__sx">
+					{{#if this.status}}
+					<span class="status-indicator status-indicator--{{this.status}}">
+						{{#if (eq this.status 'active')}}Live{{else}}{{#if (eq this.status
+						'paused')}}Paused{{else}}Archived{{/if}}{{/if}}
+					</span>
+					{{else}}
+					<span class="status-indicator status-indicator--archived">Archived</span>
+					{{/if}}
+					-
+					{{#if this.start_date}}
+					{{formatDate this.start_date}}
+					{{else}}
+					{{#if this.created_at}}
+					{{formatDate this.created_at}}
+					{{else}}
+					No date available
+					{{/if}}
+					{{/if}}
+				</div>
+				<div class="infos__dx">
+					<div class="conversation-list__header-meta">
+						<div class="conversation-list__meta-badge">
+							{{#if this.message_count}}
+								{{#if (eq this.message_count 1)}}
+									[{{this.message_count}} message]
+								{{else}}
+									[{{this.message_count}} messages]
+								{{/if}}
+							{{else}}
+								[0 messages]
+							{{/if}}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>

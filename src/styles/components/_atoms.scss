@@ -1,0 +1,90 @@
+// components/_atoms.scss - Atomic UI primitives
+@use '../abstracts/variables' as *;
+
+/* Status indicator (active/live, paused, completed/archived) */
+.status-indicator {
+	display: inline-flex;
+	align-items: center;
+	font-weight: var(--font-weight-medium);
+	color: var(--text-body-medium);
+}
+.status-indicator--active,
+.status-indicator--live {
+	color: var(--chat-status-live) !important;
+}
+
+.status-indicator--paused {
+	color: var(--text-body-medium-light) !important;
+}
+
+.status-indicator--completed,
+.status-indicator--archived {
+	color: var(--chat-status-archived) !important;
+}
+
+/* Generic small badge (numbers) */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.5rem;
+	height: 1.5rem;
+	padding: 0 .4rem;
+	font-size: .75rem;
+	font-weight: 700;
+	border-radius: 999px;
+	background: var(--hover-bg);
+	color: var(--text-body-medium);
+	border: 1px solid var(--border-color);
+}
+
+/* User chip */
+.user,
+.user-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: .25rem;
+}
+.user__guest {
+	color: var(--chat-entity-guest);
+}
+
+/* Clickable guest name */
+.js-guest-name {
+	cursor: pointer;
+	transition: opacity .2s ease;
+	
+	&:hover {
+		opacity: .7;
+		text-decoration: underline;
+	}
+}
+
+/* Guest link in banner (purple highlight) */
+.guest-link {
+	color: var(--chat-entity-guest);
+	font-weight: var(--font-weight-medium);
+}
+
+/* Timestamp */
+.timestamp { opacity: .7; font-size: .75rem; }
+
+/* Topic title highlight */
+.topic-title { font-weight: 700; }
+
+/* Date separator */
+.date-separator {
+	display: flex;
+	align-items: center;
+	gap: .75rem;
+	margin: 1.25rem 0 .75rem;
+	color: var(--text-body-medium-light);
+	font-size: .75rem;
+}
+.date-separator::before,
+.date-separator::after {
+	content: '';
+	flex: 1 1 0;
+	height: 1px;
+	background: var(--border-color);
+}

@@ -9,6 +9,10 @@ const fastify = require("fastify")({ logger: false });
 const handlebars = require("handlebars");
 // Import the database functions
 const db = require("./src/messagesDb");
+// Import Notion CMS functions
+const notionCms = require("./src/notionCms");
+// Import Notion Sync
+const { startPeriodicSync, syncNotion, getSyncStatus } = require("./scripts/sync-notion");
 
 // Telegram Bot Setup
 let recordingHasStarted = false;
@@ -27,6 +31,15 @@ console.log('Admin Telegram users configured:', ADMIN_TELEGRAM_USERS.length);
 // Helper function to check if user is admin
 function isAdminUser(userId) {
   return ADMIN_TELEGRAM_USERS.includes(userId);
+}
+
+// Helper to check admin API key for HTTP endpoints
+function isAdminRequest(request) {
+  const adminKeyHeader = request.headers['x-admin-key'] || request.headers['x-admin-token'];
+  const adminKeyQuery = request.query && request.query.admin_key;
+  const expected = process.env.ADMIN_API_KEY || null;
+  if (!expected) return false; // no admin key configured
+  return (adminKeyHeader && adminKeyHeader === expected) || (adminKeyQuery && adminKeyQuery === expected);
 }
 
 // Helper function to get user info for logging
@@ -98,12 +111,17 @@ function generateSessionId() {
   return `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
+// Store the session author temporarily
+let currentSessionAuthor = null;
+
 // Clean startRecording function
 async function startRecording(ctx) {
   recordingHasStarted = false;
   isPaused = false;
   awaitingSessionTitle = true;
   currentSessionId = generateSessionId();
+  // Save the author (who started the recording)
+  currentSessionAuthor = ctx.from.first_name || ctx.from.username || "Anonymous";
 
   ctx.reply("Please enter a title for this recording session:");
 }
@@ -116,6 +134,7 @@ async function finalizeSessionStart(ctx, title) {
       title: title,
       created_at: new Date().toISOString(),
       status: "active",
+      author: currentSessionAuthor,
     };
     
     await db.saveSession(sessionData);
@@ -162,6 +181,7 @@ async function finalizeSessionStart(ctx, title) {
     isPaused = false;
     awaitingSessionTitle = false;
     currentSessionId = null;
+    currentSessionAuthor = null;
   }
 }
 
@@ -523,6 +543,7 @@ This action CANNOT be undone!`,
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        currentSessionAuthor = null;
         awaitingSessionTitle = false;
       }
     } else {
@@ -595,6 +616,7 @@ This action CANNOT be undone!`,
         recordingHasStarted = false;
         isPaused = false;
         currentSessionId = null;
+        currentSessionAuthor = null;
         awaitingSessionTitle = false;
       }
     } else {
@@ -830,6 +852,7 @@ The database is now empty and ready for new recordings.`;
       recordingHasStarted = false;
       isPaused = false;
       currentSessionId = null;
+      currentSessionAuthor = null;
       awaitingSessionTitle = false;
       
     } catch (error) {
@@ -873,6 +896,15 @@ handlebars.registerHelper("truncateText", function (text, length) {
 handlebars.registerHelper("eq", function (a, b) {
   return a === b;
 });
+
+handlebars.registerHelper("ne", function (a, b) {
+  return a !== b;
+});
+
+handlebars.registerHelper("lte", function (a, b) {
+  return a <= b;
+});
+
 
 handlebars.registerHelper("statusIcon", function (status) {
   if (!status) return "fa-circle-question";
@@ -926,6 +958,36 @@ handlebars.registerHelper("groupByUser", function (messages, options) {
   return result;
 });
 
+// Auto-register Handlebars partials from `src/views/partials` and also `src/views/layouts` (including nested folders)
+try {
+  const partialsDir = path.join(__dirname, "src", "views", "partials");
+  const layoutsDir = path.join(__dirname, "src", "views", "layouts");
+
+  function registerPartials(dir, base = "") {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+    entries.forEach((entry) => {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const nextBase = base ? path.join(base, entry.name) : entry.name;
+        registerPartials(fullPath, nextBase);
+      } else if (entry.isFile() && entry.name.endsWith('.hbs')) {
+        const name = path.basename(entry.name, '.hbs');
+        const partialName = base ? path.join(base, name).replace(/\\/g, '/') : name;
+        const content = fs.readFileSync(fullPath, 'utf8');
+        handlebars.registerPartial(partialName, content);
+      }
+    });
+  }
+
+  registerPartials(partialsDir);
+  registerPartials(layoutsDir, 'layouts');
+  console.log('✅ Handlebars partials registered from', partialsDir);
+} catch (err) {
+  console.warn('⚠️ Could not auto-register Handlebars partials:', err && err.message ? err.message : err);
+}
+
 // Fastify server setup
 fastify.register(require("@fastify/static"), {
   root: path.join(__dirname, "public"),
@@ -944,7 +1006,42 @@ fastify.register(require("@fastify/cors")); // Enable CORS for frontend
 fastify.get("/", async (request, reply) => {
   try {
     const sessions = await db.getAllSessionsWithDetails();
-    return reply.view("homepage.hbs", { sessions });
+    
+    // Get user metadata from Notion for participants (still needed for non-authors)
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    // Enrich sessions with display names from DB cache (author) and Notion (participants)
+    const enrichedSessions = sessions.map(session => {
+      // Use cached DB values for author if present, otherwise try Notion metadata
+      let authorDisplay = session.author_display || session.author;
+      if ((!authorDisplay || authorDisplay === session.author) && session.author) {
+        const metaForAuthor = userMetadata.get(String(session.author).toLowerCase());
+        if (metaForAuthor) {
+          authorDisplay = metaForAuthor.override || metaForAuthor.originalName || session.author;
+        }
+      }
+
+      // Enrich participants with display names
+      const enrichedParticipants = (session.participants || []).map(p => {
+        const meta = userMetadata.get(String(p).toLowerCase());
+        return {
+          original: p,
+          display: meta?.override || p,
+          isGuest: meta?.isGuest || false
+        };
+      });
+
+      return {
+        ...session,
+        authorDisplay,
+        participantsEnriched: enrichedParticipants,
+        // Pass cached values for frontend
+        author_is_guest: Boolean(session.author_is_guest),
+        author_is_host: Boolean(session.author_is_host)
+      };
+    });
+    
+    return reply.view("homepage.hbs", { sessions: enrichedSessions });
   } catch (err) {
     console.error(err);
     return reply.view("homepage.hbs", { sessions: [] });
@@ -1023,14 +1120,74 @@ fastify.get("/messages", async (request, reply) => {
     const sessionId = request.query.session_id;
     const chatId = request.query.chat_id || "all";
 
+    // Get user metadata from Notion (fallback for users not in session table)
+    const userMetadata = await notionCms.getUserMetadata();
+
     // If a session ID is provided, prioritize filtering by session
     if (sessionId) {
-      const messages = await db.getMessagesBySession(sessionId);
-      return reply.send(messages);
+      let messages = await db.getMessagesBySession(sessionId);
+      const sessionDetails = await db.getSessionDetails(sessionId);
+
+      // Enrich messages with Notion metadata (override names, status)
+      messages = messages.map(msg => {
+        // Try to get metadata from Notion
+        const metadata = userMetadata.get(msg.username.toLowerCase());
+        return {
+          ...msg,
+          displayName: metadata?.override || msg.username, // Override if exists
+          isGuest: metadata?.isGuest || false,
+          isHost: metadata?.isHost || false,
+          notionStatus: metadata?.status || []
+        };
+      });
+
+      // Build safe userMetadata object (only override/status, never real names)
+      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
+        acc[key] = {
+          override: val.override,
+          isGuest: val.isGuest,
+          isHost: val.isHost,
+          status: val.status
+        };
+        return acc;
+      }, {});
+
+      return reply.send({
+        session: sessionDetails,
+        messages: messages,
+        userMetadata: safeUserMetadata
+      });
     } else {
       // Otherwise fall back to filtering by chat_id
-      const messages = await db.getMessages(chatId);
-      return reply.send(messages);
+      let messages = await db.getMessages(chatId);
+
+      // Enrich messages with Notion metadata
+      messages = messages.map(msg => {
+        const metadata = userMetadata.get(msg.username.toLowerCase());
+        return {
+          ...msg,
+          displayName: metadata?.override || msg.username,
+          isGuest: metadata?.isGuest || false,
+          isHost: metadata?.isHost || false,
+          notionStatus: metadata?.status || []
+        };
+      });
+
+      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
+        acc[key] = {
+          override: val.override,
+          isGuest: val.isGuest,
+          isHost: val.isHost,
+          status: val.status
+        };
+        return acc;
+      }, {});
+
+      return reply.send({
+        session: null,
+        messages: messages,
+        userMetadata: safeUserMetadata
+      });
     }
   } catch (err) {
     console.error(err);
@@ -1059,7 +1216,24 @@ fastify.get("/messages-view", async (request, reply) => {
     }
 
     const sessionDetails = await db.getSessionDetails(sessionId);
-    const messages = await db.getMessagesBySession(sessionId);
+    let messages = await db.getMessagesBySession(sessionId);
+
+    // Enrich messages with Notion metadata (displayName, isGuest, isHost)
+    try {
+      const userMetadata = await notionCms.getUserMetadata();
+      messages = messages.map(msg => {
+        const meta = userMetadata.get(String(msg.username).toLowerCase());
+        return {
+          ...msg,
+          displayName: meta?.override || msg.username,
+          isGuest: meta?.isGuest || false,
+          isHost: meta?.isHost || false
+        };
+      });
+    } catch (e) {
+      // If Notion fails, fall back to raw messages
+      console.error('Failed to enrich messages for messages-view:', e && e.message ? e.message : e);
+    }
 
     return reply.view("messages.hbs", {
       session: sessionDetails,
@@ -1250,6 +1424,180 @@ fastify.post("/api/fix-all-sessions", async (request, reply) => {
   }
 });
 
+// ============================================
+// NOTION CMS API ENDPOINTS
+// ============================================
+
+// Get page content by title (for guests, etc.)
+fastify.get("/api/notion/page/:title", async (request, reply) => {
+  try {
+    const { title } = request.params;
+    if (!title) {
+      return reply.status(400).send({ error: "Title parameter is required" });
+    }
+
+    const pageData = await notionCms.getPageByTitle(decodeURIComponent(title));
+    
+    if (!pageData) {
+      return reply.status(404).send({ error: "Page not found", title });
+    }
+
+    return reply.send(pageData);
+  } catch (err) {
+    console.error("Error fetching Notion page:", err);
+    return reply.status(500).send({ error: "Error fetching page from Notion" });
+  }
+});
+
+// Get upcoming chat info
+fastify.get("/api/notion/upcoming-chat", async (request, reply) => {
+  try {
+    const upcomingChat = await notionCms.getUpcomingChat();
+    
+    if (!upcomingChat) {
+      return reply.send({ found: false, message: "No upcoming chat configured" });
+    }
+
+    return reply.send({ found: true, ...upcomingChat });
+  } catch (err) {
+    console.error("Error fetching upcoming chat:", err);
+    return reply.status(500).send({ error: "Error fetching upcoming chat" });
+  }
+});
+
+// List all pages (for debugging/admin)
+fastify.get("/api/notion/pages", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    const pages = await notionCms.getAllPages();
+    return reply.send({ count: pages.length, pages });
+  } catch (err) {
+    console.error("Error fetching all Notion pages:", err);
+    return reply.status(500).send({ error: "Error fetching pages" });
+  }
+});
+
+// DEPRECATED - Endpoint removed for privacy (exposed real names)
+// Use /api/user-metadata instead
+
+// Get user metadata (safe - return both mappings)
+// - byOriginal: keys are the original username (lowercase) -> { originalName, displayName, isGuest, isHost }
+// - byDisplay: keys are the override/displayName (lowercase) -> { displayName, isGuest, isHost, originalName }
+fastify.get("/api/user-metadata", async (request, reply) => {
+  try {
+    const userMetadata = await notionCms.getUserMetadata();
+
+    const byOriginal = {};
+    const byDisplay = {};
+
+    userMetadata.forEach((val, key) => {
+      // `key` is expected to be the original name lowercased as returned by notionCms
+      const originalKey = key;
+      const originalName = val.originalName || key;
+      const displayName = val.override || null;
+
+      byOriginal[originalKey] = {
+        originalName,
+        displayName,
+        isGuest: Boolean(val.isGuest),
+        isHost: Boolean(val.isHost)
+      };
+
+      if (displayName) {
+        byDisplay[displayName.toLowerCase()] = {
+          displayName,
+          isGuest: Boolean(val.isGuest),
+          isHost: Boolean(val.isHost),
+          originalName
+        };
+      }
+    });
+
+    // For privacy: public endpoint returns only byDisplay WITHOUT originalName
+    const safeByDisplay = {};
+    Object.entries(byDisplay).forEach(([k, v]) => {
+      safeByDisplay[k] = { displayName: v.displayName, isGuest: v.isGuest, isHost: v.isHost };
+    });
+
+    return reply.send({ byDisplay: safeByDisplay });
+  } catch (err) {
+    console.error("Error fetching user metadata:", err);
+    return reply.status(500).send({ error: "Error fetching metadata" });
+  }
+});
+
+// Admin-only: full user metadata (original + display mapping) - requires ADMIN_API_KEY header or ?admin_key=
+fastify.get("/api/user-metadata/admin", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    const userMetadata = await notionCms.getUserMetadata();
+
+    const byOriginal = {};
+    const byDisplay = {};
+    userMetadata.forEach((val, key) => {
+      const originalKey = key;
+      const originalName = val.originalName || key;
+      const displayName = val.override || null;
+
+      byOriginal[originalKey] = {
+        originalName,
+        displayName,
+        isGuest: Boolean(val.isGuest),
+        isHost: Boolean(val.isHost)
+      };
+
+      if (displayName) {
+        byDisplay[displayName.toLowerCase()] = {
+          displayName,
+          isGuest: Boolean(val.isGuest),
+          isHost: Boolean(val.isHost),
+          originalName
+        };
+      }
+    });
+
+    return reply.send({ byOriginal, byDisplay });
+  } catch (err) {
+    console.error("Error fetching admin user metadata:", err);
+    return reply.status(500).send({ error: "Error fetching metadata" });
+  }
+});
+
+// Clear Notion cache (force refresh)
+fastify.post("/api/notion/clear-cache", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    notionCms.clearCache();
+    return reply.send({ success: true, message: "Notion cache cleared" });
+  } catch (err) {
+    return reply.status(500).send({ error: "Error clearing cache" });
+  }
+});
+
+// Manual sync endpoint (admin only)
+fastify.post("/admin/sync", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    console.log('[Admin] Manual sync triggered');
+    const result = await syncNotion();
+    return reply.send({ success: true, result });
+  } catch (err) {
+    console.error("Error in manual sync:", err);
+    return reply.status(500).send({ error: "Error syncing with Notion" });
+  }
+});
+
+// Get sync status (for monitoring)
+fastify.get("/admin/sync-status", async (request, reply) => {
+  try {
+    if (!isAdminRequest(request)) return reply.status(401).send({ error: 'Unauthorized' });
+    const status = getSyncStatus();
+    return reply.send(status);
+  } catch (err) {
+    return reply.status(500).send({ error: "Error getting sync status" });
+  }
+});
+
 let sessionCheckInterval;
 
 // Avvia il server con una migliore inizializzazione
@@ -1277,6 +1625,10 @@ const start = async () => {
     await fastify.listen({ port: process.env.PORT || 3000, host: "0.0.0.0" });
     console.log(`Server listening on ${fastify.server.address().port}`);
 
+    // Start Notion sync (runs initial sync + every 30 minutes)
+    // startPeriodicSync returns an interval id so we can clear it on shutdown
+    const notionSyncIntervalId = startPeriodicSync();
+
     // Initialize Telegram bot AFTER server is running
     initializeTelegramBot();
 
@@ -1300,6 +1652,7 @@ const start = async () => {
     process.once("SIGINT", () => {
       console.log("Received SIGINT, stopping server...");
       clearInterval(sessionCheckInterval);
+      try { if (notionSyncIntervalId) clearInterval(notionSyncIntervalId); } catch (e) {}
       fastify.close();
       if (bot) bot.stop("SIGINT");
     });
@@ -1307,6 +1660,7 @@ const start = async () => {
     process.once("SIGTERM", () => {
       console.log("Received SIGTERM, stopping server...");
       clearInterval(sessionCheckInterval);
+      try { if (notionSyncIntervalId) clearInterval(notionSyncIntervalId); } catch (e) {}
       fastify.close();
       if (bot) bot.stop("SIGTERM");
     });

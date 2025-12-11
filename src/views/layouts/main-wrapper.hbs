@@ -1,0 +1,75 @@
+<main class="main-layout">
+	<div class="layout js-layout is-center-collapsed is-right-collapsed" id="app-layout">
+		<!-- Left column: chat list (always visible) -->
+		<section class="layout__col layout__col--left" id="col-left" aria-labelledby="left-label">
+			<div class="upcoming-chat-banner" id="upcoming-chat-banner">
+				<p class="upcoming-chat-banner__date" id="upcoming-chat-date"></p>
+				<p class="upcoming-chat-banner__participants" id="upcoming-chat-participants">Loading...</p>
+				<p class="upcoming-chat-banner__topic" id="upcoming-chat-topic"></p>
+			</div>
+			{{> components/organisms/chat-list }}
+		</section>
+
+		<!-- Center column: message thread (hidden until a chat is selected) -->
+		<section class="layout__col layout__col--center" id="col-center" role="region" aria-live="polite" hidden>
+			<header class="thread-header">
+				<button class="icon-btn js-thread-close" aria-controls="col-center" aria-expanded="true" aria-label="Close message thread">[x]</button>
+				<div id="thread-header-content" class="conversation-list__item conversation-list__item--header">
+					<!-- Header content will be populated by JavaScript -->
+				</div>
+			</header>
+			<div id="message-thread-root" class="message-thread">
+				{{> components/organisms/message-thread }}
+			</div>
+		</section>
+		<section class="layout__col layout__col--right sidebar is-collapsed" id="col-right" aria-expanded="false">
+			<!-- Collapsed vertical tab for About (visible only when sidebar is closed) -->
+			<button class="sidebar-tab sidebar-tab--about js-about-tab-open" aria-controls="about-panel" aria-label="Open About panel">
+				<span class="sidebar-tab__label">ABOUT THE PROJECT</span>
+				<span class="sidebar-tab__icon">
+					<img src="/graphics/up-arrow.svg" alt="" class="sidebar-tab__arrow" />
+				</span>
+				<span class="sidebar-tab__close">[-]</span>
+			</button>
+
+			<!-- Collapsed vertical tab for Guest (visible only when guest is loaded and sidebar is closed) -->
+			<button class="sidebar-tab sidebar-tab--guest js-guest-tab-open" id="guest-sidebar-tab" aria-controls="guest-panel" aria-label="Open Guest panel" hidden>
+				<span class="sidebar-tab__label" id="guest-sidebar-tab-label">GUEST</span>
+				<span class="sidebar-tab__icon">
+					<img src="/graphics/up-arrow.svg" alt="" class="sidebar-tab__arrow" />
+				</span>
+				<span class="sidebar-tab__close">[-]</span>
+			</button>
+
+			<!-- About Panel (separate from guest) -->
+			<div class="sidebar__panel sidebar__panel--about" id="about-panel" hidden>
+				<header class="sidebar__panel-header">
+					<h2 class="sidebar__panel-title">ABOUT THE PROJECT</h2>
+					<button class="icon-btn sidebar__close js-about-close" aria-controls="about-panel" aria-label="Close About panel">[-]</button>
+				</header>
+				<div class="sidebar__content">
+					{{> components/organisms/sidebar }}
+				</div>
+			</div>
+
+			<!-- Guest Panel (separate from about) -->
+			<div class="sidebar__panel sidebar__panel--guest" id="guest-panel" hidden>
+				<header class="sidebar__panel-header">
+					<h2 class="sidebar__panel-title" id="guest-panel-title">GUEST</h2>
+					<button class="icon-btn sidebar__close js-guest-close" aria-controls="guest-panel" aria-label="Close Guest panel">[x]</button>
+				</header>
+				<article class="guest-card is-visible" id="guest-card">
+					<div class="guest-card__body">
+						<div class="guest-card__cover" id="guest-card-cover"></div>
+						<div class="guest-card__content" id="guest-card-content">
+							<!-- Content from Notion will be injected here -->
+						</div>
+					</div>
+				</article>
+				<!-- Hidden title for JS -->
+				<span hidden id="guest-card-title"></span>
+			</div>
+		</section>
+	</div>
+	<script src="/js/layout-toggles.js"></script>
+</main>

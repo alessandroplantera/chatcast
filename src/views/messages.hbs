@@ -104,9 +104,9 @@
             {{#each messages}}
             <div class="message-thread__message">
               <div class="message-thread__header">
-                <div class="message-thread__username">
-                  {{#if this.username}}{{this.username}}{{else}}Anonymous{{/if}}
-                </div>
+                  <div class="message-thread__username">
+                    {{#if this.displayName}}{{this.displayName}}{{else}}{{#if this.username}}{{this.username}}{{else}}Anonymous{{/if}}{{/if}}
+                  </div>
                 <div class="message-thread__timestamp">
                   {{#if this.date}}
                     {{formatDate this.date "HH:mm:ss"}}
