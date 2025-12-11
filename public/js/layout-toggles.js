@@ -200,8 +200,8 @@
         const parts = description.split('/').map(s => s.trim());
         
         if (parts.length >= 2) {
-          // Participants part (before /)
-          const participantsText = parts[0];
+          // Participants part (before /) - normalize to avoid duplicated < > in UI
+          const participantsText = normalizeParticipantsText(parts[0]);
           // Topic part (after /)
           const topicText = parts.slice(1).join('/').trim(); // In case topic contains /
           
@@ -213,7 +213,7 @@
           }
         } else {
           // No / found, just show description
-          bannerParticipants.innerHTML = linkifyGuestNames(description);
+          bannerParticipants.innerHTML = linkifyGuestNames(normalizeParticipantsText(description));
           if (bannerTopic) bannerTopic.textContent = '';
         }
       } else {
@@ -229,6 +229,14 @@
     }
   }
   
+  // Normalize participants text coming from Notion Description
+  // Strips angle brackets so we do not end up with duplicated
+  // "<<Name>>" when linkifyGuestNames adds its own < > wrappers.
+  function normalizeParticipantsText(text) {
+    if (!text) return '';
+    return text.replace(/[<>]/g, '').trim();
+  }
+
   /**
    * Find guest/host names in text and wrap them with clickable spans
    * Searches for BOTH original names and override names in the text
@@ -238,10 +246,12 @@
   function linkifyGuestNames(text) {
     if (!text || (guestCache.size === 0 && Object.keys(userMetadataCache).length === 0)) return escapeHTML(text);
 
-    let result = escapeHTML(text);
+    // DON'T escape the entire text yet - we'll escape parts as we replace
+    let result = text;
 
     // Build list of all names (original + override) with metadata
     const nameMatches = [];
+    const processedNames = new Set(); // Track already replaced names to avoid duplicates
 
     if (guestCache.size > 0) {
       for (const guest of guestCache.values()) {
@@ -285,16 +295,35 @@
         }
       }
     }
-    
+
     // Sort by search term length (longest first) to avoid partial replacements
     nameMatches.sort((a, b) => b.searchTerm.length - a.searchTerm.length);
-    
+
+    // Replace names with spans, avoiding duplicates
     for (const match of nameMatches) {
-      // Case-insensitive search for the term
-      const regex = new RegExp(`(${escapeRegex(match.searchTerm)})`, 'gi');
-      result = result.replace(regex, `<span class="${match.userClass}" data-guest-name="${escapeHTML(match.originalName)}">&lt;${escapeHTML(match.displayName)}&gt;</span>`);
+      const lowerTerm = match.searchTerm.toLowerCase();
+
+      // Skip if already processed to avoid double replacements
+      if (processedNames.has(lowerTerm)) continue;
+
+      // Case-insensitive search and replace
+      const regex = new RegExp(`\\b(${escapeRegex(match.searchTerm)})\\b`, 'gi');
+      result = result.replace(regex, (_, name) => {
+        processedNames.add(name.toLowerCase());
+        return `<span class="${match.userClass}" data-guest-name="${escapeHTML(match.originalName)}">&lt;${escapeHTML(match.displayName)}&gt;</span>`;
+      });
     }
-    
+
+    // Now escape any remaining non-replaced text parts
+    // Split by our inserted spans and escape only the text parts
+    const parts = result.split(/(<span[^>]*>.*?<\/span>)/);
+    result = parts.map(part => {
+      if (part.startsWith('<span')) {
+        return part; // Already our HTML, don't escape
+      }
+      return escapeHTML(part);
+    }).join('');
+
     return result;
   }
   
