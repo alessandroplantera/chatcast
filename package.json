@@ -17,7 +17,8 @@
     "db:reset": "node scripts/db-reset.js",
     "db:status": "node scripts/db-status.js",
 	"db:seed": "node scripts/utils/db-seed.js",
-    "deploy": "npm run db:backup && npm run build"
+    "deploy": "npm run db:backup && npm run build",
+	"staging":"rm -f data/*.db && npm run init-db && npm run build"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.0",
