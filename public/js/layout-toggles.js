@@ -191,6 +191,7 @@
   
   async function loadUpcomingChatBanner() {
     const bannerDate = document.getElementById('upcoming-chat-date');
+    const bannerTime = document.getElementById('upcoming-chat-time');
     const bannerParticipants = document.getElementById('upcoming-chat-participants');
     const bannerTopic = document.getElementById('upcoming-chat-topic');
     
@@ -210,6 +211,10 @@
         const date = data.properties.Date || data.properties.date;
         if (date && bannerDate) {
           bannerDate.textContent = formatBannerDate(date);
+        }
+        // Get time
+        if (date && bannerTime) {
+          bannerTime.textContent = formatBannerTime(date);
         }
         
         // Parse Description: "Guest1 and Guest2 / Topic"
@@ -236,12 +241,14 @@
       } else {
         bannerParticipants.textContent = 'No Upcoming Chats Scheduled';
         if (bannerDate) bannerDate.textContent = '';
+        if (bannerTime) bannerTime.textContent = '';
         if (bannerTopic) bannerTopic.textContent = '';
       }
     } catch (err) {
       console.error('Failed to load upcoming chat:', err);
       bannerParticipants.textContent = 'No Upcoming Chats Scheduled';
       if (bannerDate) bannerDate.textContent = '';
+      if (bannerTime) bannerTime.textContent = '';
       if (bannerTopic) bannerTopic.textContent = '';
     }
   }
@@ -415,6 +422,20 @@
       });
     } catch (e) {
       return dateString;
+    }
+  }
+
+  function formatBannerTime(dateString) {
+    try {
+      const d = new Date(dateString);
+      const hours = d.getHours();
+      const minutes = d.getMinutes();
+      const period = hours >= 12 ? 'P.M.' : 'A.M.';
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}.${displayMinutes} ${period} (CET)`;
+    } catch (e) {
+      return '';
     }
   }
   

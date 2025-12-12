@@ -326,10 +326,24 @@ body {
   gap: 0.25rem;
 }
 
+.upcoming-chat-banner__date-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
 .upcoming-chat-banner__date {
   margin: 0;
   font-size: var(--2xl);
   color: var(--text-body-light);
+}
+
+.upcoming-chat-banner__time {
+  margin: 0;
+  font-size: var(--lg);
+  color: var(--text-body-light);
+  white-space: nowrap;
 }
 
 .upcoming-chat-banner__participants {
