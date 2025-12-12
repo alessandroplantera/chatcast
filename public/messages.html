@@ -244,5 +244,46 @@
     // Set up auto-refresh when the page is ready
     setupAutoRefresh();
   </script>
+  <!-- Socket.IO client (served by the server) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    // Integrate SocketClient to receive real-time messages
+    (function() {
+      if (!window.SocketClient) return;
+      // Connect and join the room for this session
+      SocketClient.connect();
+      SocketClient.joinSession(sessionId);
+
+      // Append new incoming message to the DOM
+      SocketClient.on('message:new', function(msg) {
+        try {
+          if (!msg || msg.session_id !== sessionId) return;
+          const messagesContainer = document.getElementById('messages-list');
+
+          // Create a message element consistent with existing render
+          const messageElement = document.createElement('div');
+          messageElement.className = 'message';
+          messageElement.innerHTML = `
+            <div class="message-header">
+              <span class="message-username">${msg.username}</span>
+              <span class="message-date">${new Date(msg.date).toLocaleString()}</span>
+            </div>
+            <div class="message-text">${msg.message}</div>
+          `;
+
+          messagesContainer.appendChild(messageElement);
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+          // Update message count UI
+          const countEl = document.getElementById('session-message-count');
+          if (countEl) {
+            const current = parseInt(countEl.textContent.replace(/\D/g,'')) || 0;
+            countEl.textContent = `Messages: ${current + 1}`;
+          }
+        } catch (e) { console.error('Failed to append incoming message', e); }
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ const { Telegraf, Markup, Scenes, session } = require("telegraf");
 const { message } = require("telegraf/filters");
 const fastify = require("fastify")({ logger: false });
 const handlebars = require("handlebars");
+const { Server: SocketIOServer } = require('socket.io');
 // Import the database functions
 const db = require("./src/messagesDb");
 // Import Notion CMS functions
@@ -20,6 +21,7 @@ let isPaused = false;
 let currentSessionId = null; // Track the current recording session
 let awaitingSessionTitle = false; // Track if we're waiting for a session title
 let bot = null; // Initialize as null
+let io = null; // Socket.IO server instance (initialized after Fastify listens)
 
 // Admin user configuration - Add to your .env file
 const ADMIN_TELEGRAM_USERS = process.env.ADMIN_TELEGRAM_USERS 
@@ -675,7 +677,19 @@ This action CANNOT be undone!`,
           message: messageText,
         };
 
-        await db.saveMessage(msgToSave);
+        const savedId = await db.saveMessage(msgToSave);
+
+        // Build canonical saved message object
+        const savedMessage = Object.assign({ id: savedId }, msgToSave);
+
+        // Emit realtime event to clients in the session room (if Socket.IO initialized)
+        try {
+          if (io) {
+            io.to(`session:${currentSessionId}`).emit('message:new', savedMessage);
+          }
+        } catch (emitErr) {
+          console.error('Error emitting socket event:', emitErr);
+        }
 
         // React with eye emoji
         await ctx.telegram.setMessageReaction(
@@ -1658,6 +1672,41 @@ const start = async () => {
     // Avvia il server
     await fastify.listen({ port: process.env.PORT || 3000, host: "0.0.0.0" });
     console.log(`Server listening on ${fastify.server.address().port}`);
+
+    // Initialize Socket.IO after server is listening
+    try {
+      io = new SocketIOServer(fastify.server, {
+        cors: {
+          origin: '*',
+          methods: ['GET', 'POST']
+        }
+      });
+
+      io.on('connection', (socket) => {
+        console.log('Socket connected:', socket.id);
+
+        socket.on('join', (room) => {
+          try {
+            socket.join(room);
+            console.log(`Socket ${socket.id} joined room ${room}`);
+          } catch (e) { console.error('join error', e); }
+        });
+
+        socket.on('leave', (room) => {
+          try { socket.leave(room); } catch (e) { /* ignore */ }
+        });
+
+        socket.on('disconnect', (reason) => {
+          // console.log('Socket disconnected', socket.id, reason);
+        });
+      });
+
+      // Attach io to fastify for potential use in routes
+      fastify.decorate('io', io);
+      console.log('Socket.IO initialized');
+    } catch (e) {
+      console.error('Failed to initialize Socket.IO:', e);
+    }
 
     // Start Notion sync (runs initial sync + every 30 minutes)
     // startPeriodicSync returns an interval id so we can clear it on shutdown

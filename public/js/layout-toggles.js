@@ -27,6 +27,9 @@
   
   // User metadata cache (override names, status from Notion)
   let userMetadataCache = {};
+  // Socket state for real-time updates (inline thread)
+  let currentSocketSession = null;
+  let socketMessageHandler = null;
   
   // Helper to get display name with override
   function getDisplayName(username) {
@@ -69,6 +72,18 @@
     layout && layout.classList.add('is-center-collapsed');
     // Optional: clear content
      if (threadRoot) threadRoot.innerHTML = '';
+
+    // Leave socket room and remove handler when thread is closed
+    try {
+      if (window.SocketClient && currentSocketSession) {
+        if (socketMessageHandler) {
+          SocketClient.off('message:new', socketMessageHandler);
+          socketMessageHandler = null;
+        }
+        SocketClient.leaveSession(currentSocketSession);
+        currentSocketSession = null;
+      }
+    } catch (e) { /* ignore */ }
   }
 
   // About panel open/close
@@ -678,6 +693,57 @@
       renderThreadHeader(data.session, data.userMetadata);
       renderMessages(data.messages);
       showThread();
+
+      // --- Socket: join the session room and listen for incoming messages ---
+      try {
+        if (window.SocketClient) {
+          // Remove previous handler/room if switching
+          if (currentSocketSession && currentSocketSession !== sessionId) {
+            SocketClient.leaveSession(currentSocketSession);
+            if (socketMessageHandler) SocketClient.off('message:new', socketMessageHandler);
+            socketMessageHandler = null;
+          }
+
+          // Define handler that appends incoming messages to the open thread
+          socketMessageHandler = function (msg) {
+            try {
+              if (!msg || msg.session_id !== sessionId) return;
+              // Avoid duplicates: simple guard by message id if present
+              const existing = threadRoot.querySelector(`[data-message-id=\"${msg.id}\"]`);
+              if (existing) return;
+
+              const displayName = escapeHTML(msg.displayName || msg.username || 'Anonymous');
+              const originalName = escapeHTML(msg.username || 'Anonymous');
+              const content = escapeHTML(msg.message || '');
+              const time = fmtTime(msg.date || msg.sent_at || new Date().toISOString());
+              const isGuest = msg.isGuest === true || (userMetadataCache[msg.username?.toLowerCase()]?.isGuest === true);
+              const alignClass = isGuest ? 'message-thread__message--guest' : 'message-thread__message--host';
+              const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+
+              const node = document.createElement('div');
+              node.className = `message-thread__message ${alignClass}`;
+              node.innerHTML = `
+                <div class="message-thread__header">
+                  <span class="message-thread__username ${userClass}" data-guest-name="${originalName}">&lt;${displayName}&gt;</span>
+                </div>
+                <div class="message-thread__content">${content}</div>
+                <time class="message-thread__timestamp">${time}</time>`;
+              if (msg.id) node.setAttribute('data-message-id', msg.id);
+
+              // Append and scroll
+              threadRoot.appendChild(node);
+              threadRoot.scrollTop = threadRoot.scrollHeight;
+            } catch (e) { console.error('Socket handler error', e); }
+          };
+
+          SocketClient.connect();
+          SocketClient.joinSession(sessionId);
+          SocketClient.on('message:new', socketMessageHandler);
+          currentSocketSession = sessionId;
+        }
+      } catch (e) {
+        console.error('Failed to attach socket handler for thread:', e);
+      }
     } catch (err) {
       console.error('Failed to load thread', err);
       if (threadRoot) threadRoot.innerHTML = `<div class="message-thread__error">Failed to load messages: ${escapeHTML(err.message)}</div>`;
