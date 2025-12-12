@@ -860,6 +860,142 @@
     // Preload metadata first, then apply overrides to server-rendered HTML
     await preloadNotionGuests(); // Populate userMetadataCache
     applyOverridesToConversationList(); // Update conversation list and banner text
+    // Setup global sessions subscription for realtime conversation-list updates
+    try {
+      if (window.SocketClient) {
+        SocketClient.connect();
+        // Join a global 'sessions' room to receive session updates
+        // Use joinRoom so we subscribe to the exact room name emitted by the server
+        SocketClient.joinRoom('sessions');
+        SocketClient.on('session:update', function (session) {
+          console.log('[layout-toggles] received session:update', session && session.session_id);
+
+          try {
+            if (!session || !session.session_id) return;
+            const id = session.session_id;
+
+            // Fetch authoritative session details from server to avoid cache/mismatch
+            fetch(`/session/${encodeURIComponent(id)}?_=${Date.now()}`)
+              .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+              })
+              .then(remote => {
+                try {
+                  // Update conversation list item if present
+                  const item = document.querySelector(`.conversation-list__item[data-session-id="${id}"]`);
+                  if (item) {
+                    // Update status indicator
+                    const statusEl = item.querySelector('.status-indicator');
+                    if (statusEl) {
+                      const s = remote.status || 'completed';
+                      const label = s === 'active' ? 'Live' : s === 'paused' ? 'Paused' : 'Archived';
+                      statusEl.className = `status-indicator status-indicator--${s}`;
+                      statusEl.textContent = label;
+                    }
+
+                    // Update message count badge
+                    const badge = item.querySelector('.conversation-list__meta-badge');
+                    if (badge) {
+                      const count = remote.message_count || 0;
+                      badge.innerHTML = count === 1 ? `[1 message]` : `[${count} messages]`;
+                    }
+
+                    // Optionally update title / participants if present
+                    const titleEl = item.querySelector('.conversation-list__header-title');
+                    if (titleEl && remote.title) {
+                      if (!titleEl.textContent.includes(remote.title)) {
+                        const parts = titleEl.textContent.split(' talking about ');
+                        const left = parts[0] || '';
+                        titleEl.textContent = `${left} talking about ${remote.title}`;
+                      }
+                    }
+                  } else {
+                    // If item is not present (e.g. new session), consider reloading the list or inserting it
+                    console.log('[layout-toggles] session:update: item not found in DOM for', id);
+                  }
+
+                  // If this session is currently open in the inline thread, update header
+                  if (currentSocketSession && currentSocketSession === id) {
+                    try {
+                      renderThreadHeader(remote, userMetadataCache);
+                    } catch (e) { /* ignore */ }
+                  }
+                } catch (e) { console.error('Error applying remote session details', e); }
+              })
+              .catch(err => {
+                console.error('Failed to fetch session details for realtime update:', err);
+              });
+          } catch (e) { console.error('Error applying realtime session update', e); }
+        });
+
+        // Listen for new sessions to add them to the conversation list
+        SocketClient.on('session:new', function (session) {
+          console.log('[layout-toggles] received session:new', session && session.session_id);
+          try {
+            if (!session || !session.session_id) return;
+            const id = session.session_id;
+
+            // Check if item already exists
+            if (document.querySelector(`.conversation-list__item[data-session-id="${id}"]`)) {
+              console.log('[layout-toggles] session:new: item already exists for', id);
+              return;
+            }
+
+            // Find the conversation list container
+            const listContainer = document.querySelector('.conversation-list');
+            if (!listContainer) {
+              console.log('[layout-toggles] session:new: conversation-list container not found');
+              return;
+            }
+
+            // Build the new item HTML
+            const statusLabel = session.status === 'active' ? 'Live' : session.status === 'paused' ? 'Paused' : 'Archived';
+            const authorDisplay = session.author || 'Host';
+            const title = session.title || `Conversation ${id}`;
+            const messageCount = session.message_count || 0;
+            const dateStr = session.created_at ? new Date(session.created_at).toLocaleDateString() : 'No date';
+
+            const itemHTML = `
+              <div class="conversation-list__item" data-session-id="${id}">
+                <div class="conversation-list__header">
+                  <div>
+                    <div class="conversation-list__header-title">
+                      <span class="user-badge" data-guest-name="${authorDisplay}">${authorDisplay}</span> and <span class="user-badge user-badge--guest">Guest</span> talking about ${title}
+                    </div>
+                  </div>
+                </div>
+                <div class="conversation-list__meta">
+                  <div class="conversation-list__meta-info">
+                    <div class="infos__sx">
+                      <span class="status-indicator status-indicator--${session.status || 'active'}">${statusLabel}</span>
+                      - ${dateStr}
+                    </div>
+                    <div class="infos__dx">
+                      <div class="conversation-list__header-meta">
+                        <div class="conversation-list__meta-badge">
+                          ${messageCount === 1 ? '[1 message]' : `[${messageCount} messages]`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            // Insert at the top of the list (newest first)
+            listContainer.insertAdjacentHTML('afterbegin', itemHTML);
+            console.log('[layout-toggles] session:new: added new conversation item for', id);
+
+            // Apply metadata overrides to the new item if available
+            try { applyOverridesToConversationList(); } catch (e) { /* ignore */ }
+
+          } catch (e) { console.error('Error handling session:new', e); }
+        });
+      }
+    } catch (e) {
+      console.error('Failed to setup sessions realtime subscription', e);
+    }
     // Then load banner (which also uses linkifyGuestNames and can rely on cache)
     await loadUpcomingChatBanner(); // Load banner from Notion
     // setupHoverEffects();

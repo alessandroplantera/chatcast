@@ -23,6 +23,38 @@ let awaitingSessionTitle = false; // Track if we're waiting for a session title
 let bot = null; // Initialize as null
 let io = null; // Socket.IO server instance (initialized after Fastify listens)
 
+// Helper to emit session updates to clients (global so all handlers can use it)
+async function emitSessionUpdate(sessionId) {
+  if (!sessionId) return;
+  try {
+    const session = await db.getSession(sessionId);
+    if (!session) return;
+    if (io) {
+      // Emit to session room and to sessions list room
+      io.to(`session:${sessionId}`).emit('session:update', session);
+      io.to('sessions').emit('session:update', session);
+      console.log('[emitSessionUpdate] emitted session:update for', sessionId);
+    }
+  } catch (err) {
+    console.error('Error emitting session update:', err);
+  }
+}
+
+// Helper to emit new session creation to clients
+async function emitSessionNew(sessionId) {
+  if (!sessionId) return;
+  try {
+    const session = await db.getSession(sessionId);
+    if (!session) return;
+    if (io) {
+      io.to('sessions').emit('session:new', session);
+      console.log('[emitSessionNew] emitted session:new for', sessionId);
+    }
+  } catch (err) {
+    console.error('Error emitting new session:', err);
+  }
+}
+
 // Admin user configuration - Add to your .env file
 const ADMIN_TELEGRAM_USERS = process.env.ADMIN_TELEGRAM_USERS 
   ? process.env.ADMIN_TELEGRAM_USERS.split(',').map(id => parseInt(id.trim()))
@@ -140,6 +172,9 @@ async function finalizeSessionStart(ctx, title) {
     };
     
     await db.saveSession(sessionData);
+
+    // Emit new session event to clients (so conversation-list updates)
+    try { emitSessionNew(currentSessionId); } catch (e) { console.error(e); }
 
     // Update state variables
     awaitingSessionTitle = false;
@@ -479,6 +514,7 @@ This action CANNOT be undone!`,
             ...session,
             status: "paused",
           });
+          try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(session.session_id || currentSessionId); } catch(e) {}
         }
       } catch (error) {
         console.error("Error updating session status:", error);
@@ -502,6 +538,7 @@ This action CANNOT be undone!`,
             ...session,
             status: "active",
           });
+          try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(session.session_id || currentSessionId); } catch(e) {}
         }
       } catch (error) {
         console.error("Error updating session status:", error);
@@ -524,6 +561,7 @@ This action CANNOT be undone!`,
             session_id: lastSessionId,
             status: "completed",
           });
+          try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(lastSessionId); } catch(e) {}
 
           ctx.reply(
             `Recording stopped. Session completed successfully. Press the button to start a new session.`,
@@ -572,6 +610,8 @@ This action CANNOT be undone!`,
       } catch (error) {
         console.error("Error updating session status:", error);
       }
+
+      try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(currentSessionId); } catch(e) {}
       ctx.reply(`Recording paused. Session is on hold.`, pausedRecordingKeyboard);
     } else {
       ctx.reply("No active recording to pause.", startRecordingKeyboard);
@@ -592,6 +632,8 @@ This action CANNOT be undone!`,
       } catch (error) {
         console.error("Error updating session status:", error);
       }
+
+      try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(currentSessionId); } catch(e) {}
       ctx.reply(`Recording resumed. Continuing session.`, activeRecordingKeyboard);
     } else {
       ctx.reply("No paused recording to resume.", startRecordingKeyboard);
@@ -687,6 +729,7 @@ This action CANNOT be undone!`,
           if (io) {
             io.to(`session:${currentSessionId}`).emit('message:new', savedMessage);
           }
+          try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(currentSessionId); } catch (e) {}
         } catch (emitErr) {
           console.error('Error emitting socket event:', emitErr);
         }
@@ -1307,6 +1350,9 @@ fastify.put("/session/:id/status", async (request, reply) => {
       ...session,
       status: status,
     });
+
+    // Emit session update
+    try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(sessionId); } catch (e) {}
 
     return reply.send({
       success: true,

@@ -10,4 +10,6 @@ Review
 	Quali sono le regole secondo cui viene definito il colore dell'utente? (X)
 
 Todo
-	About section deve prendere meno spazio in larghezza
+(x)	About section deve prendere meno spazio in larghezza
+	aggiungi noOne se non c'è nessuno nella chat
+	
