@@ -16,4 +16,4 @@ logs/
 # Build files
 public/style.css
 public/style.css.map
-" >> .gitignore
+public/dist/

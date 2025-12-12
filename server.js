@@ -1017,11 +1017,24 @@ The database is now empty and ready for new recordings.`;
   console.log('✅ Bot handlers setup complete');
 }
 
+// Check if we're in production mode
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Register handlebars helpers
 handlebars.registerHelper("formatDate", function (dateString) {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
   return date.toLocaleString();
+});
+
+// Helper to get the correct JS path based on environment
+handlebars.registerHelper("jsPath", function (filename) {
+  if (isProduction) {
+    // In production, use minified files from /dist
+    return `/dist/${filename.replace('.js', '.min.js')}`;
+  }
+  // In development, use original files from /js
+  return `/js/${filename}`;
 });
 
 handlebars.registerHelper("toLowerCase", function (str) {

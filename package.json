@@ -11,7 +11,8 @@
     "sass:build": "sass src/styles/main.scss public/style.css --style=compressed",
     "sass:watch": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
     "sass:dev": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
-    "build": "npm run sass:build",
+    "js:build": "node scripts/build-js.js",
+    "build": "npm run sass:build && npm run js:build",
     "init-db": "node init-databases.js",
     "reset-db": "rm -f data/*.db && npm run init-db",
     "db:backup": "node scripts/db-backup.js",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "esbuild": "^0.27.1",
     "nodemon": "^3.0.1",
     "sass": "^1.89.1"
   },
