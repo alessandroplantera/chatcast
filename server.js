@@ -742,10 +742,26 @@ This action CANNOT be undone!`,
         // Build canonical saved message object
         const savedMessage = Object.assign({ id: savedId }, msgToSave);
 
+        // Sanitize message for realtime emission: add displayName, isGuest, isHost
+        let sanitizedMessage = { ...savedMessage };
+        try {
+          const userMetadata = await notionCms.getUserMetadata();
+          const authorMeta = userMetadata.get(userName.toLowerCase());
+          sanitizedMessage.displayName = authorMeta?.override || authorMeta?.originalName || userName;
+          sanitizedMessage.isGuest = authorMeta?.isGuest === true;
+          sanitizedMessage.isHost = authorMeta?.isHost === true;
+          // Also add text field for client compatibility
+          sanitizedMessage.text = sanitizedMessage.message;
+        } catch (e) {
+          console.error('Error enriching message for socket emit:', e);
+          sanitizedMessage.displayName = userName;
+          sanitizedMessage.text = sanitizedMessage.message;
+        }
+
         // Emit realtime event to clients in the session room (if Socket.IO initialized)
         try {
           if (io) {
-            io.to(`session:${currentSessionId}`).emit('message:new', savedMessage);
+            io.to(`session:${currentSessionId}`).emit('message:new', sanitizedMessage);
           }
           try { if (typeof emitSessionUpdate === 'function') emitSessionUpdate(currentSessionId); } catch (e) {}
         } catch (emitErr) {
@@ -1678,9 +1694,29 @@ fastify.get("/api/notion/page/:title", async (request, reply) => {
     }
 
     const pageData = await notionCms.getPageByTitle(lookupTitle);
-    
+
     if (!pageData) {
       return reply.status(404).send({ error: "Page not found", title: decodedTitle });
+    }
+
+    // Ensure a normalized Override property exists in the returned properties
+    // Notion property keys may vary in casing; find any key named 'override' case-insensitively
+    try {
+      const props = pageData.properties || {};
+      let foundKey = null;
+      Object.keys(props).forEach(k => {
+        if (!foundKey && k && k.toLowerCase() === 'override') foundKey = k;
+      });
+      if (foundKey) {
+        const raw = props[foundKey];
+        const normalized = (typeof raw === 'string') ? raw : (Array.isArray(raw) ? raw[0] : String(raw || ''));
+        // Expose as `Override` for client consumption
+        props.Override = normalized;
+        pageData.properties = props;
+      }
+    } catch (e) {
+      // Non-fatal - continue returning page data
+      console.error('Error normalizing Override property for Notion page response:', e);
     }
 
     return reply.send(pageData);

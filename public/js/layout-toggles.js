@@ -758,11 +758,15 @@
               const existing = threadRoot.querySelector(`[data-message-id=\"${msg.id}\"]`);
               if (existing) return;
 
-              const displayName = escapeHTML(msg.displayName || msg.username || 'Anonymous');
+              // Look up metadata from cache to get displayName and isGuest
+              const usernameLower = (msg.username || '').toLowerCase();
+              const meta = userMetadataCache[usernameLower];
+              const displayName = escapeHTML(msg.displayName || meta?.displayName || meta?.override || msg.username || 'Anonymous');
               const originalName = escapeHTML(msg.username || 'Anonymous');
-              const content = escapeHTML(msg.message || '');
+              const content = escapeHTML(msg.text || msg.message || '');
               const time = fmtTime(msg.date || msg.sent_at || new Date().toISOString());
-              const isGuest = msg.isGuest === true || (userMetadataCache[msg.username?.toLowerCase()]?.isGuest === true);
+              // Prefer server-provided isGuest, then fallback to cache
+              const isGuest = (msg.isGuest === true) || (meta?.isGuest === true);
               const alignClass = isGuest ? 'message-thread__message--guest' : 'message-thread__message--host';
               const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
 
@@ -993,6 +997,13 @@
             if (!listContainer) {
               console.log('[layout-toggles] session:new: conversation-list container not found');
               return;
+            }
+
+            // Remove empty state if present (first conversation arriving)
+            const emptyState = listContainer.querySelector('.conversation-list__empty-state');
+            if (emptyState) {
+              emptyState.remove();
+              console.log('[layout-toggles] session:new: removed empty state');
             }
 
             // Build the new item HTML
