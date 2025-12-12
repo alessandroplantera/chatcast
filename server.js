@@ -1803,27 +1803,43 @@ fastify.get("/api/notion/page/:title", async (request, reply) => {
       return reply.status(404).send({ error: "Page not found", title: decodedTitle });
     }
 
-    // Ensure a normalized Override property exists in the returned properties
-    // Notion property keys may vary in casing; find any key named 'override' case-insensitively
-    try {
-      const props = pageData.properties || {};
-      let foundKey = null;
-      Object.keys(props).forEach(k => {
-        if (!foundKey && k && k.toLowerCase() === 'override') foundKey = k;
-      });
-      if (foundKey) {
-        const raw = props[foundKey];
-        const normalized = (typeof raw === 'string') ? raw : (Array.isArray(raw) ? raw[0] : String(raw || ''));
-        // Expose as `Override` for client consumption
-        props.Override = normalized;
-        pageData.properties = props;
+    // SANITIZE: Hide original Telegram usernames from public response
+    // Replace title with Override (display name) if available
+    const props = pageData.properties || {};
+    
+    // Find Override property (case-insensitive)
+    let overrideValue = null;
+    Object.keys(props).forEach(k => {
+      if (k && k.toLowerCase() === 'override' && props[k]) {
+        const raw = props[k];
+        overrideValue = (typeof raw === 'string') ? raw : (Array.isArray(raw) ? raw[0] : String(raw || ''));
       }
-    } catch (e) {
-      // Non-fatal - continue returning page data
-      console.error('Error normalizing Override property for Notion page response:', e);
-    }
+    });
+    
+    // Build sanitized response - never expose original title (Telegram username)
+    const sanitizedResponse = {
+      id: pageData.id,
+      // Use Override as title, fallback to a generic label (never expose original)
+      title: overrideValue || 'Guest',
+      properties: {
+        // Only include safe properties
+        Date: props.Date || null,
+        URL: props.URL || null,
+        '@': props['@'] || null,
+        Media: props.Media || [],
+        Status: props.Status || [],
+        Description: props.Description || '',
+        Override: overrideValue || null
+        // Explicitly NOT including: Name (original username)
+      },
+      content: pageData.content || '',
+      cover: pageData.cover || null,
+      icon: pageData.icon || null,
+      media: pageData.media || null,
+      lastEdited: pageData.lastEdited || null
+    };
 
-    return reply.send(pageData);
+    return reply.send(sanitizedResponse);
   } catch (err) {
     console.error("Error fetching Notion page:", err);
     return reply.status(500).send({ error: "Error fetching page from Notion" });
