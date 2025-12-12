@@ -38,6 +38,11 @@
 
 .main-layout {
 	height: 100vh;
+	height: 100dvh; /* Dynamic viewport height - fixes Safari mobile */
+	/* Fallback for older Safari */
+	@supports (-webkit-touch-callout: none) {
+		height: -webkit-fill-available;
+	}
 	background-color: var(--bg-black);
 	display: flex;
 	font-size: var(--base);
@@ -143,7 +148,7 @@
 	flex-direction: column;
 	justify-content: space-between;
 	align-items: flex-start;
-	gap: var(--spacing-sm);
+	gap: var(--spacing-xl);
 	background-color: var(--bg-black);
 }
 
@@ -152,10 +157,15 @@
 	flex: 1;
 	background-color: var(--bg-black);
 	padding: 0;
-	pointer-events: none;
 
 	.conversation-list__header-title {
 		color: var(--text-body-light);
+
+		.user-badge,
+		.js-guest-name {
+			cursor: pointer;
+			pointer-events: auto;
+		}
 
 		.user__guest {
 			color: var(--chat-entity-guest);
@@ -314,7 +324,6 @@
 
 .sidebar__close {
 	margin-left: auto;
-	padding: .5rem 1rem;
 }
 
 /* Tab content areas */
@@ -483,6 +492,7 @@
 		width: 100% !important;
 		height: auto;
 		max-height: 85vh;
+		max-height: 85dvh;
 		z-index: 200;
 		border-top: 1px solid var(--border-color);
 		border-left: none;
@@ -500,11 +510,20 @@
 		overflow: hidden;
 	}
 
-	/* Expanded sidebar on mobile: slides up */
+	/* Expanded sidebar on mobile: slides up to cover full screen */
 	.layout:not(.is-right-collapsed) .layout__col--right,
 	.sidebar:not(.is-collapsed) {
-		height: 98vh;
+		top: 0 !important;
+		bottom: 0;
+		height: 100vh;
+		height: 100dvh;
 		max-height: 100vh;
+		max-height: 100dvh;
+		/* Fallback for older Safari */
+		@supports (-webkit-touch-callout: none) {
+			height: -webkit-fill-available;
+			max-height: -webkit-fill-available;
+		}
 	}
 
 	/* Bottom bar tabs (replaces vertical sidebar tabs) */
@@ -575,10 +594,10 @@
 		display: none;
 	}
 
-	/* Panel slides up from bottom */
+	/* Panel slides up from bottom - full height when open */
 	.sidebar__panel {
-		height: calc(100vh - var(--3xl));
-		max-height: calc(100vh - var(--3xl));
+		height: 100%;
+		max-height: 100%;
 		overflow-y: hidden;
 		display: flex;
 		flex-direction: column;

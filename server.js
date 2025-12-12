@@ -30,9 +30,18 @@ async function emitSessionUpdate(sessionId) {
     const session = await db.getSession(sessionId);
     if (!session) return;
     if (io) {
+      // Sanitize: replace author with display name
+      const userMetadata = await notionCms.getUserMetadata();
+      const authorMeta = userMetadata.get(session.author?.toLowerCase());
+      const sanitizedSession = {
+        ...session,
+        author: authorMeta?.override || authorMeta?.originalName || session.author,
+        author_display: authorMeta?.override || authorMeta?.originalName || session.author_display || session.author
+      };
+      
       // Emit to session room and to sessions list room
-      io.to(`session:${sessionId}`).emit('session:update', session);
-      io.to('sessions').emit('session:update', session);
+      io.to(`session:${sessionId}`).emit('session:update', sanitizedSession);
+      io.to('sessions').emit('session:update', sanitizedSession);
       console.log('[emitSessionUpdate] emitted session:update for', sessionId);
     }
   } catch (err) {
@@ -47,7 +56,16 @@ async function emitSessionNew(sessionId) {
     const session = await db.getSession(sessionId);
     if (!session) return;
     if (io) {
-      io.to('sessions').emit('session:new', session);
+      // Sanitize: replace author with display name
+      const userMetadata = await notionCms.getUserMetadata();
+      const authorMeta = userMetadata.get(session.author?.toLowerCase());
+      const sanitizedSession = {
+        ...session,
+        author: authorMeta?.override || authorMeta?.originalName || session.author,
+        author_display: authorMeta?.override || authorMeta?.originalName || session.author_display || session.author
+      };
+      
+      io.to('sessions').emit('session:new', sanitizedSession);
       console.log('[emitSessionNew] emitted session:new for', sessionId);
     }
   } catch (err) {
@@ -1067,32 +1085,41 @@ fastify.get("/", async (request, reply) => {
     // Get user metadata from Notion for participants (still needed for non-authors)
     const userMetadata = await notionCms.getUserMetadata();
     
-    // Enrich sessions with display names from DB cache (author) and Notion (participants)
+    // Enrich sessions with display names and SANITIZE: never expose real usernames
     const enrichedSessions = sessions.map(session => {
       // Use cached DB values for author if present, otherwise try Notion metadata
       let authorDisplay = session.author_display || session.author;
-      if ((!authorDisplay || authorDisplay === session.author) && session.author) {
+      if (session.author) {
         const metaForAuthor = userMetadata.get(String(session.author).toLowerCase());
-        if (metaForAuthor) {
-          authorDisplay = metaForAuthor.override || metaForAuthor.originalName || session.author;
+        if (metaForAuthor?.override) {
+          authorDisplay = metaForAuthor.override;
         }
       }
 
-      // Enrich participants with display names
+      // Enrich participants with display names - SANITIZE: use displayName as identifier
       const enrichedParticipants = (session.participants || []).map(p => {
         const meta = userMetadata.get(String(p).toLowerCase());
+        // Fallback chain: override → Notion page title (originalName) → original username
+        const displayName = meta?.override || meta?.originalName || p;
         return {
-          original: p,
-          display: meta?.override || p,
+          original: displayName, // Use display name as identifier (no real username)
+          display: displayName,
           isGuest: meta?.isGuest || false
         };
       });
 
       return {
-        ...session,
+        session_id: session.session_id,
+        title: session.title,
+        start_date: session.start_date,
+        end_date: session.end_date,
+        message_count: session.message_count,
+        status: session.status,
+        // SANITIZED: only expose display names, never real usernames
+        author: authorDisplay,
         authorDisplay,
+        participants: enrichedParticipants.map(p => p.display),
         participantsEnriched: enrichedParticipants,
-        // Pass cached values for frontend
         author_is_guest: Boolean(session.author_is_guest),
         author_is_host: Boolean(session.author_is_host)
       };
@@ -1114,7 +1141,33 @@ fastify.get("/about", async (request, reply) => {
 fastify.get("/sessions-details", async (request, reply) => {
   try {
     const sessionsWithDetails = await db.getAllSessionsWithDetails();
-    return reply.send(sessionsWithDetails);
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    // Sanitize: replace real usernames with display names
+    const sanitized = sessionsWithDetails.map(session => {
+      // Sanitize participants
+      const sanitizedParticipants = session.participants
+        ? session.participants.map(username => {
+            const meta = userMetadata.get(username?.toLowerCase());
+            return meta?.override || meta?.originalName || username;
+          })
+        : [];
+      
+      // Sanitize author
+      let sanitizedAuthor = session.author;
+      if (session.author) {
+        const authorMeta = userMetadata.get(session.author?.toLowerCase());
+        sanitizedAuthor = authorMeta?.override || authorMeta?.originalName || session.author;
+      }
+      
+      return {
+        ...session,
+        participants: sanitizedParticipants,
+        author: sanitizedAuthor
+      };
+    });
+    
+    return reply.send(sanitized);
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error retrieving sessions details.");
@@ -1136,14 +1189,30 @@ fastify.get("/sessions", async (request, reply) => {
 fastify.get("/sessions-list", async (request, reply) => {
   try {
     const sessions = await db.getAllSessions();
-    return reply.send(sessions);
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    // Sanitize: replace real usernames with display names
+    const sanitized = sessions.map(session => {
+      let sanitizedAuthor = session.author;
+      if (session.author) {
+        const authorMeta = userMetadata.get(session.author?.toLowerCase());
+        sanitizedAuthor = authorMeta?.override || authorMeta?.originalName || session.author;
+      }
+      
+      return {
+        ...session,
+        author: sanitizedAuthor
+      };
+    });
+    
+    return reply.send(sanitized);
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error retrieving sessions list.");
   }
 });
 
-// Get details for a specific session
+// Get details for a specific session (sanitized - no real usernames)
 fastify.get("/session/:id", async (request, reply) => {
   try {
     const sessionId = request.params.id;
@@ -1153,7 +1222,27 @@ fastify.get("/session/:id", async (request, reply) => {
       return reply.status(404).send("Session not found");
     }
 
-    return reply.send(sessionDetails);
+    // Sanitize: replace real usernames with display names
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    const authorMeta = userMetadata.get(sessionDetails.author?.toLowerCase());
+    const authorDisplay = authorMeta?.override || authorMeta?.originalName || sessionDetails.author;
+    
+    const participantsDisplay = (sessionDetails.participants || []).map(p => {
+      const meta = userMetadata.get(p?.toLowerCase());
+      return meta?.override || meta?.originalName || p;
+    });
+
+    return reply.send({
+      session_id: sessionDetails.session_id,
+      title: sessionDetails.title,
+      start_date: sessionDetails.start_date,
+      end_date: sessionDetails.end_date,
+      participants: participantsDisplay,
+      message_count: sessionDetails.message_count,
+      status: sessionDetails.status,
+      author: authorDisplay
+    });
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error retrieving session details.");
@@ -1180,37 +1269,76 @@ fastify.get("/messages", async (request, reply) => {
     // Get user metadata from Notion (fallback for users not in session table)
     const userMetadata = await notionCms.getUserMetadata();
 
+    // Helper to sanitize a message - remove real username, use displayName only
+    const sanitizeMessage = (msg) => {
+      const metadata = userMetadata.get(msg.username?.toLowerCase());
+      // Fallback chain: override → Notion page title (originalName) → Telegram username
+      const displayName = metadata?.override || metadata?.originalName || msg.username;
+      
+      // Create sanitized message without exposing real username
+      return {
+        id: msg.id,
+        text: msg.message,  // DB column is 'message', frontend expects 'text'
+        date: msg.date,
+        session_id: msg.session_id,
+        // Use displayName instead of username - this is the public-facing name
+        username: displayName,  // Replace real username with display name
+        displayName: displayName,
+        isGuest: metadata?.isGuest || false,
+        isHost: metadata?.isHost || false,
+        // Omit: chat_id, message_id, first_name, telegram_user_id, session_title
+      };
+    };
+
+    // Helper to sanitize session details
+    const sanitizeSession = (session) => {
+      if (!session) return null;
+      
+      // Replace author with display name
+      const authorMeta = userMetadata.get(session.author?.toLowerCase());
+      const authorDisplay = authorMeta?.override || authorMeta?.originalName || session.author;
+      
+      // Replace participants with display names
+      const participantsDisplay = (session.participants || []).map(p => {
+        const meta = userMetadata.get(p?.toLowerCase());
+        return meta?.override || meta?.originalName || p;
+      });
+      
+      return {
+        session_id: session.session_id,
+        title: session.title,
+        start_date: session.start_date,
+        end_date: session.end_date,
+        participants: participantsDisplay,  // Display names only
+        message_count: session.message_count,
+        status: session.status,
+        author: authorDisplay  // Display name only
+      };
+    };
+
     // If a session ID is provided, prioritize filtering by session
     if (sessionId) {
       let messages = await db.getMessagesBySession(sessionId);
       const sessionDetails = await db.getSessionDetails(sessionId);
 
-      // Enrich messages with Notion metadata (override names, status)
-      messages = messages.map(msg => {
-        // Try to get metadata from Notion
-        const metadata = userMetadata.get(msg.username.toLowerCase());
-        return {
-          ...msg,
-          displayName: metadata?.override || msg.username, // Override if exists
-          isGuest: metadata?.isGuest || false,
-          isHost: metadata?.isHost || false,
-          notionStatus: metadata?.status || []
-        };
+      // Sanitize messages - remove real usernames
+      messages = messages.map(sanitizeMessage);
+
+      // Build safe userMetadata object (keyed by displayName, not original)
+      const safeUserMetadata = {};
+      userMetadata.forEach((val, key) => {
+        if (val.override) {
+          // Key by displayName so client can look up by the name it sees
+          safeUserMetadata[val.override.toLowerCase()] = {
+            override: val.override,
+            isGuest: val.isGuest,
+            isHost: val.isHost
+          };
+        }
       });
 
-      // Build safe userMetadata object (only override/status, never real names)
-      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
-        acc[key] = {
-          override: val.override,
-          isGuest: val.isGuest,
-          isHost: val.isHost,
-          status: val.status
-        };
-        return acc;
-      }, {});
-
       return reply.send({
-        session: sessionDetails,
+        session: sanitizeSession(sessionDetails),
         messages: messages,
         userMetadata: safeUserMetadata
       });
@@ -1218,27 +1346,19 @@ fastify.get("/messages", async (request, reply) => {
       // Otherwise fall back to filtering by chat_id
       let messages = await db.getMessages(chatId);
 
-      // Enrich messages with Notion metadata
-      messages = messages.map(msg => {
-        const metadata = userMetadata.get(msg.username.toLowerCase());
-        return {
-          ...msg,
-          displayName: metadata?.override || msg.username,
-          isGuest: metadata?.isGuest || false,
-          isHost: metadata?.isHost || false,
-          notionStatus: metadata?.status || []
-        };
-      });
+      // Sanitize messages
+      messages = messages.map(sanitizeMessage);
 
-      const safeUserMetadata = Array.from(userMetadata.entries()).reduce((acc, [key, val]) => {
-        acc[key] = {
-          override: val.override,
-          isGuest: val.isGuest,
-          isHost: val.isHost,
-          status: val.status
-        };
-        return acc;
-      }, {});
+      const safeUserMetadata = {};
+      userMetadata.forEach((val, key) => {
+        if (val.override) {
+          safeUserMetadata[val.override.toLowerCase()] = {
+            override: val.override,
+            isGuest: val.isGuest,
+            isHost: val.isHost
+          };
+        }
+      });
 
       return reply.send({
         session: null,
@@ -1256,7 +1376,31 @@ fastify.get("/messages", async (request, reply) => {
 fastify.get("/sessions-view", async (request, reply) => {
   try {
     const sessions = await db.getAllSessionsWithDetails();
-    return reply.view("index.hbs", { sessions });
+    const userMetadata = await notionCms.getUserMetadata();
+    
+    // Sanitize: replace real usernames with display names
+    const sanitizedSessions = sessions.map(session => {
+      const sanitizedParticipants = session.participants
+        ? session.participants.map(username => {
+            const meta = userMetadata.get(username?.toLowerCase());
+            return meta?.override || meta?.originalName || username;
+          })
+        : [];
+      
+      let sanitizedAuthor = session.author;
+      if (session.author) {
+        const authorMeta = userMetadata.get(session.author?.toLowerCase());
+        sanitizedAuthor = authorMeta?.override || authorMeta?.originalName || session.author;
+      }
+      
+      return {
+        ...session,
+        participants: sanitizedParticipants,
+        author: sanitizedAuthor
+      };
+    });
+    
+    return reply.view("index.hbs", { sessions: sanitizedSessions });
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error rendering sessions view.");
@@ -1276,20 +1420,39 @@ fastify.get("/messages-view", async (request, reply) => {
     let messages = await db.getMessagesBySession(sessionId);
 
     // Enrich messages with Notion metadata (displayName, isGuest, isHost)
-    try {
-      const userMetadata = await notionCms.getUserMetadata();
-      messages = messages.map(msg => {
-        const meta = userMetadata.get(String(msg.username).toLowerCase());
-        return {
-          ...msg,
-          displayName: meta?.override || msg.username,
-          isGuest: meta?.isGuest || false,
-          isHost: meta?.isHost || false
-        };
-      });
-    } catch (e) {
-      // If Notion fails, fall back to raw messages
-      console.error('Failed to enrich messages for messages-view:', e && e.message ? e.message : e);
+    // and sanitize: replace real username with displayName
+    const userMetadata = await notionCms.getUserMetadata();
+    messages = messages.map(msg => {
+      const meta = userMetadata.get(String(msg.username).toLowerCase());
+      // Fallback chain: override → Notion page title (originalName) → Telegram username
+      const displayName = meta?.override || meta?.originalName || msg.username;
+      
+      // Sanitize: use displayName as username, remove real username
+      return {
+        id: msg.id,
+        text: msg.message,  // DB column is 'message', frontend expects 'text'
+        date: msg.date,
+        session_id: msg.session_id,
+        session_title: msg.session_title,
+        username: displayName, // Replace real username with display name
+        displayName: displayName,
+        isGuest: meta?.isGuest || false,
+        isHost: meta?.isHost || false
+      };
+    });
+
+    // Sanitize session details too
+    if (sessionDetails) {
+      if (sessionDetails.author) {
+        const authorMeta = userMetadata.get(sessionDetails.author?.toLowerCase());
+        sessionDetails.author = authorMeta?.override || authorMeta?.originalName || sessionDetails.author;
+      }
+      if (sessionDetails.participants) {
+        sessionDetails.participants = sessionDetails.participants.map(p => {
+          const meta = userMetadata.get(p?.toLowerCase());
+          return meta?.override || meta?.originalName || p;
+        });
+      }
     }
 
     return reply.view("messages.hbs", {
@@ -1489,6 +1652,7 @@ fastify.post("/api/fix-all-sessions", async (request, reply) => {
 // ============================================
 
 // Get page content by title (for guests, etc.)
+// Accepts both display names and original names - resolves display to original for lookup
 fastify.get("/api/notion/page/:title", async (request, reply) => {
   try {
     const { title } = request.params;
@@ -1496,10 +1660,27 @@ fastify.get("/api/notion/page/:title", async (request, reply) => {
       return reply.status(400).send({ error: "Title parameter is required" });
     }
 
-    const pageData = await notionCms.getPageByTitle(decodeURIComponent(title));
+    const decodedTitle = decodeURIComponent(title);
+    
+    // Try to resolve display name to original name for user pages
+    const userMetadata = await notionCms.getUserMetadata();
+    let lookupTitle = decodedTitle;
+    
+    // Check if this is a display name that needs resolution to original name
+    // userMetadata Map: key = originalName (lowercase), value = { originalName, override, isGuest, isHost }
+    for (const [originalNameKey, meta] of userMetadata) {
+      // meta.override is the display name, meta.originalName is the Notion page title
+      if (meta.override && meta.override.toLowerCase() === decodedTitle.toLowerCase()) {
+        lookupTitle = meta.originalName; // Use the exact original name for Notion lookup
+        console.log(`Resolved display name "${decodedTitle}" to original "${meta.originalName}"`);
+        break;
+      }
+    }
+
+    const pageData = await notionCms.getPageByTitle(lookupTitle);
     
     if (!pageData) {
-      return reply.status(404).send({ error: "Page not found", title });
+      return reply.status(404).send({ error: "Page not found", title: decodedTitle });
     }
 
     return reply.send(pageData);
@@ -1518,7 +1699,27 @@ fastify.get("/api/notion/upcoming-chat", async (request, reply) => {
       return reply.send({ found: false, message: "No upcoming chat configured" });
     }
 
-    return reply.send({ found: true, ...upcomingChat });
+    // Sanitize: replace original usernames in Description with display names
+    const userMetadata = await notionCms.getUserMetadata();
+    let sanitizedUpcoming = { ...upcomingChat };
+    
+    if (sanitizedUpcoming.properties?.Description) {
+      let desc = sanitizedUpcoming.properties.Description;
+      // Replace each original username with its display name
+      userMetadata.forEach((meta, originalName) => {
+        if (meta.override && originalName !== meta.override.toLowerCase()) {
+          // Case-insensitive replacement of originalName with displayName
+          const regex = new RegExp(`\\b${originalName}\\b`, 'gi');
+          desc = desc.replace(regex, meta.override);
+        }
+      });
+      sanitizedUpcoming.properties = {
+        ...sanitizedUpcoming.properties,
+        Description: desc
+      };
+    }
+
+    return reply.send({ found: true, ...sanitizedUpcoming });
   } catch (err) {
     console.error("Error fetching upcoming chat:", err);
     return reply.status(500).send({ error: "Error fetching upcoming chat" });
@@ -1541,44 +1742,42 @@ fastify.get("/api/notion/pages", async (request, reply) => {
 // Use /api/user-metadata instead
 
 // Get user metadata (safe - return both mappings)
-// - byOriginal: keys are the original username (lowercase) -> { originalName, displayName, isGuest, isHost }
-// - byDisplay: keys are the override/displayName (lowercase) -> { displayName, isGuest, isHost, originalName }
+// - byOriginal: keys are the display name (lowercase) -> { displayName, isGuest, isHost }
+// - byDisplay: keys are the display name (lowercase) -> { displayName, isGuest, isHost }
 fastify.get("/api/user-metadata", async (request, reply) => {
   try {
     const userMetadata = await notionCms.getUserMetadata();
 
+    // PUBLIC endpoint: only expose display names and flags, NEVER real Telegram usernames
     const byOriginal = {};
     const byDisplay = {};
 
     userMetadata.forEach((val, key) => {
-      // `key` is expected to be the original name lowercased as returned by notionCms
-      const originalKey = key;
-      const originalName = val.originalName || key;
-      const displayName = val.override || null;
-
-      byOriginal[originalKey] = {
-        originalName,
-        displayName,
-        isGuest: Boolean(val.isGuest),
-        isHost: Boolean(val.isHost)
-      };
-
+      // Use override if available, otherwise use the Notion page title (originalName)
+      // This way we never expose the real Telegram username, but still include all users
+      const displayName = val.override || val.originalName || null;
+      
       if (displayName) {
-        byDisplay[displayName.toLowerCase()] = {
+        const safeKey = displayName.toLowerCase();
+        byOriginal[safeKey] = {
           displayName,
           isGuest: Boolean(val.isGuest),
-          isHost: Boolean(val.isHost),
-          originalName
+          isHost: Boolean(val.isHost)
+          // NO real Telegram username exposed!
+        };
+
+        byDisplay[safeKey] = {
+          displayName,
+          isGuest: Boolean(val.isGuest),
+          isHost: Boolean(val.isHost)
+          // NO real Telegram username exposed!
         };
       }
     });
 
-    // Return both mappings for proper name resolution
-    // byOriginal: keyed by original name (lowercase) -> metadata
-    // byDisplay: keyed by override/display name (lowercase) -> metadata
     return reply.send({
-      byOriginal,  // Includes originalName and displayName
-      byDisplay    // Includes originalName for reverse lookup
+      byOriginal,
+      byDisplay
     });
   } catch (err) {
     console.error("Error fetching user metadata:", err);
@@ -1747,8 +1946,6 @@ const start = async () => {
         });
       });
 
-      // Attach io to fastify for potential use in routes
-      fastify.decorate('io', io);
       console.log('Socket.IO initialized');
     } catch (e) {
       console.error('Failed to initialize Socket.IO:', e);

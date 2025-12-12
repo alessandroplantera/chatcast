@@ -32,10 +32,26 @@
   let socketMessageHandler = null;
   
   // Helper to get display name with override
+  // Searches by key first, then by checking if the input matches any originalName or displayName
   function getDisplayName(username) {
     if (!username) return 'Anonymous';
-    const metadata = userMetadataCache[username.toLowerCase()];
-    return metadata?.override || metadata?.displayName || username;
+    const userLower = username.toLowerCase();
+    
+    // Direct key match
+    let metadata = userMetadataCache[userLower];
+    
+    // If not found, search through all entries to find by displayName
+    if (!metadata) {
+      for (const [key, meta] of Object.entries(userMetadataCache)) {
+        // Check if the input matches the displayName (case-insensitive)
+        if (meta.displayName && meta.displayName.toLowerCase() === userLower) {
+          metadata = meta;
+          break;
+        }
+      }
+    }
+    
+    return metadata?.displayName || metadata?.override || username;
   }
 
   // Time management (used on homepage and potentially other views)
@@ -144,40 +160,26 @@
     
     try {
       // Fetch user metadata (server returns both mappings)
+      // Keys are displayName (lowercase) -> { displayName, isGuest, isHost }
       const res = await fetch('/api/user-metadata');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
 
-      // Prefer the byOriginal mapping (originalName lowercased -> meta)
-      if (data.byOriginal) {
-        Object.entries(data.byOriginal).forEach(([origKey, meta]) => {
-          // origKey is already lowercased
-          userMetadataCache[origKey] = {
-            override: meta.displayName || null,
-            isGuest: Boolean(meta.isGuest),
-            isHost: Boolean(meta.isHost),
-            originalName: meta.originalName || origKey
-          };
-        });
-        guestCacheLoaded = true;
-      } else if (data.byDisplay) {
-        // Fallback: if only byDisplay is provided, populate cache keyed by the best available
-        // key. The public `byDisplay` response may omit `originalName` (for privacy),
-        // so guard against calling toLowerCase on undefined and fall back to the
-        // displayKey when originalName is missing.
-        Object.entries(data.byDisplay).forEach(([displayKey, meta]) => {
-          const originalName = meta?.originalName || displayKey;
-          const key = (originalName || displayKey).toLowerCase();
-          userMetadataCache[key] = {
-            override: meta?.displayName || null,
-            isGuest: Boolean(meta?.isGuest),
-            isHost: Boolean(meta?.isHost),
-            originalName: meta?.originalName || displayKey
-          };
-        });
-        guestCacheLoaded = true;
-      }
+      // Both byOriginal and byDisplay now use displayName as key (for privacy)
+      const source = data.byOriginal || data.byDisplay || {};
+      Object.entries(source).forEach(([key, meta]) => {
+        // key is displayName lowercased
+        userMetadataCache[key] = {
+          displayName: meta.displayName || key,
+          override: meta.displayName || null, // For backward compatibility
+          isGuest: Boolean(meta.isGuest),
+          isHost: Boolean(meta.isHost),
+          // originalName is not exposed for privacy, use displayName
+          originalName: meta.displayName || key
+        };
+      });
+      guestCacheLoaded = true;
     } catch (err) {
       console.error('Failed to preload user metadata:', err);
     }
@@ -273,13 +275,32 @@
         container.appendChild(document.createTextNode(' and '));
       }
 
-      const meta = userMetadataCache[name.toLowerCase()];
+      // Try to find meta - first by exact key, then by override match
+      const nameLower = name.toLowerCase();
+      let meta = userMetadataCache[nameLower];
+      let originalName = name;
+
+      if (meta) {
+        // Found by key - use the stored originalName
+        originalName = meta.originalName || name;
+      } else {
+        // Search by override (display name)
+        for (const [origKey, m] of Object.entries(userMetadataCache)) {
+          if (m.override && m.override.toLowerCase() === nameLower) {
+            meta = m;
+            originalName = m.originalName || origKey;
+            break;
+          }
+        }
+      }
+
       const isGuest = meta?.isGuest === true;
-      const displayName = getDisplayName(name);
+      const displayName = meta?.override || name;
 
       const span = document.createElement('span');
       span.className = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
-      span.setAttribute('data-guest-name', name);
+      // Use original name for data-guest-name so Notion lookup works
+      span.setAttribute('data-guest-name', originalName);
       span.textContent = `<${displayName}>`;
 
       container.appendChild(span);
@@ -437,7 +458,27 @@
   async function loadGuestInfo(guestName) {
     if (!guestName) return;
 
-    const cacheKey = guestName.toLowerCase();
+    // Resolve display name to original name using userMetadataCache
+    // The guestName might be "Alessandro Plantera" but the Notion page is titled "aleplante"
+    let lookupName = guestName;
+    const inputLower = guestName.toLowerCase();
+
+    // First check if the input matches a key directly
+    if (userMetadataCache[inputLower]) {
+      // It's already the original name
+      lookupName = userMetadataCache[inputLower].originalName || guestName;
+    } else {
+      // Check if it matches any override (display name)
+      for (const [origKey, meta] of Object.entries(userMetadataCache)) {
+        if (meta.override && meta.override.toLowerCase() === inputLower) {
+          // Found! Use the original name for Notion lookup
+          lookupName = meta.originalName || origKey;
+          break;
+        }
+      }
+    }
+
+    const cacheKey = lookupName.toLowerCase();
 
     // Check if we have it in cache (full data)
     const cached = guestCache.get(cacheKey);
@@ -448,11 +489,11 @@
     }
 
     try {
-      const res = await fetch(`/api/notion/page/${encodeURIComponent(guestName)}`);
+      const res = await fetch(`/api/notion/page/${encodeURIComponent(lookupName)}`);
 
       if (!res.ok) {
         if (res.status === 404) {
-          console.log(`No Notion page found for guest: ${guestName}`);
+          console.log(`No Notion page found for guest: ${lookupName} (original input: ${guestName})`);
           return false;
         }
         throw new Error(`HTTP ${res.status}`);
@@ -476,7 +517,10 @@
     if (!guestCard) return;
 
     const originalName = data.title || 'Guest';
-    const displayName = getDisplayName(originalName); // Use override if available
+    // Prefer explicit Override property from Notion page if present
+    const overrideProp = (data.properties && (data.properties.Override || data.properties.override));
+    const overrideValue = (typeof overrideProp === 'string') ? overrideProp : (overrideProp && overrideProp.title) || null;
+    const displayName = overrideValue || getDisplayName(originalName); // Use Override if available, otherwise fallback
 
     // Set title (hidden, for reference)
     if (guestCardTitle) {
@@ -573,7 +617,7 @@
       // Use displayName from Notion override, fallback to username
       const displayName = escapeHTML(m.displayName || m.username || 'Anonymous');
       const originalName = escapeHTML(m.username || 'Anonymous');
-      const content = escapeHTML(m.message || '');
+      const content = escapeHTML(m.text || m.message || '');
       const time = fmtTime(m.date || m.sent_at);
 
       // Use ONLY Notion status (isGuest from backend)
@@ -602,15 +646,17 @@
     const headerContent = document.getElementById('thread-header-content');
     if (!headerContent || !session) return;
 
-    // Helper to get display name with Notion override
-    const getDisplayName = (username) => {
-      const metadata = userMetadata[username?.toLowerCase()];
-      return escapeHTML(metadata?.override || username || 'Anonymous');
+    // Helper to get display name - session data is already sanitized with display names
+    // userMetadata keys are displayName (lowercase) -> { displayName, isGuest, isHost }
+    const getDisplayName = (name) => {
+      const metadata = userMetadata[name?.toLowerCase()];
+      // name is already the display name from sanitized session data
+      return escapeHTML(metadata?.displayName || metadata?.override || name || 'Anonymous');
     };
 
     // Helper to check if user is guest from Notion
-    const isGuestFromNotion = (username) => {
-      const metadata = userMetadata[username?.toLowerCase()];
+    const isGuestFromNotion = (name) => {
+      const metadata = userMetadata[name?.toLowerCase()];
       return metadata?.isGuest === true;
     };
 
