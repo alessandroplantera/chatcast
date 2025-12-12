@@ -195,7 +195,9 @@ async function initializeDb() {
 function createIndexes() {
   try {
     db.run("CREATE INDEX IF NOT EXISTS idx_messages_username ON Messages(username)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_messages_session_id ON Messages(session_id)");
     db.run("CREATE INDEX IF NOT EXISTS idx_sessions_author ON Sessions(author)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_sessions_status ON Sessions(status)");
     console.log('Database indexes ensured');
   } catch (err) {
     console.error('Error creating indexes:', err);

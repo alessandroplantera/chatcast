@@ -15,6 +15,56 @@ const notionCms = require("./src/notionCms");
 // Import Notion Sync
 const { startPeriodicSync, syncNotion, getSyncStatus } = require("./scripts/sync-notion");
 
+// ============================================
+// ENVIRONMENT VALIDATION
+// ============================================
+function validateEnvironment() {
+  const required = [];
+  const warnings = [];
+  
+  // Check critical env vars
+  if (!process.env.NOTION_TOKEN && !process.env.NOTION_API_KEY) {
+    warnings.push('NOTION_TOKEN not set - Notion features will be disabled');
+  }
+  if (!process.env.NOTION_DATABASE_ID) {
+    warnings.push('NOTION_DATABASE_ID not set - Notion features will be disabled');
+  }
+  if (!process.env.TELEGRAM_BOT_TOKEN && !process.env.BOT_TOKEN) {
+    warnings.push('TELEGRAM_BOT_TOKEN not set - Telegram bot will be disabled');
+  }
+  if (!process.env.ADMIN_API_KEY) {
+    warnings.push('ADMIN_API_KEY not set - Admin endpoints will be inaccessible');
+  }
+  
+  // Log warnings
+  warnings.forEach(w => console.warn(`⚠️  ${w}`));
+  
+  // Fail on required missing
+  if (required.length > 0) {
+    console.error('❌ Missing required environment variables:', required.join(', '));
+    process.exit(1);
+  }
+  
+  return { warnings };
+}
+
+// Run validation at startup
+validateEnvironment();
+
+// ============================================
+// GLOBAL ERROR HANDLERS
+// ============================================
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit in production, just log
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Give time to log before exiting
+  setTimeout(() => process.exit(1), 1000);
+});
+
 // Telegram Bot Setup
 let recordingHasStarted = false;
 let isPaused = false;
@@ -85,13 +135,12 @@ function isAdminUser(userId) {
   return ADMIN_TELEGRAM_USERS.includes(userId);
 }
 
-// Helper to check admin API key for HTTP endpoints
+// Helper to check admin API key for HTTP endpoints (header only for security)
 function isAdminRequest(request) {
   const adminKeyHeader = request.headers['x-admin-key'] || request.headers['x-admin-token'];
-  const adminKeyQuery = request.query && request.query.admin_key;
   const expected = process.env.ADMIN_API_KEY || null;
   if (!expected) return false; // no admin key configured
-  return (adminKeyHeader && adminKeyHeader === expected) || (adminKeyQuery && adminKeyQuery === expected);
+  return adminKeyHeader && adminKeyHeader === expected;
 }
 
 // Helper function to get user info for logging
@@ -112,10 +161,12 @@ function initializeTelegramBot() {
     return null;
   }
 
-  console.log("🔍 Telegram Debug:");
-  console.log("- Token exists:", !!telegramToken);
-  console.log("- Token length:", telegramToken?.length);
-  console.log("- Token preview:", telegramToken?.substring(0, 10) + "...");
+  // Only log minimal info in production
+  if (process.env.NODE_ENV !== 'production') {
+    console.log("🔍 Telegram Debug:");
+    console.log("- Token exists:", !!telegramToken);
+    console.log("- Token length:", telegramToken?.length);
+  }
 
   try {
     bot = new Telegraf(telegramToken);
@@ -1091,7 +1142,60 @@ fastify.register(require("@fastify/view"), {
   },
   templates: path.join(__dirname, "src/views"),
 });
-fastify.register(require("@fastify/cors")); // Enable CORS for frontend
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : null;
+
+fastify.register(require("@fastify/cors"), {
+  origin: process.env.NODE_ENV === 'production' && allowedOrigins 
+    ? allowedOrigins 
+    : true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+});
+
+// Rate limiting
+fastify.register(require("@fastify/rate-limit"), {
+  max: 100, // max 100 requests
+  timeWindow: '1 minute',
+  // Stricter limit for sensitive endpoints
+  keyGenerator: (request) => request.ip,
+  errorResponseBuilder: (request, context) => ({
+    statusCode: 429,
+    error: 'Too Many Requests',
+    message: `Rate limit exceeded. Try again in ${context.after}`
+  })
+});
+
+// ============================================
+// HEALTH CHECK ENDPOINT
+// ============================================
+fastify.get("/health", async (request, reply) => {
+  try {
+    // Check database connection
+    const dbHealthy = await db.getAllSessions().then(() => true).catch(() => false);
+    
+    const status = {
+      status: dbHealthy ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      checks: {
+        database: dbHealthy ? 'ok' : 'error',
+        telegram: bot ? 'ok' : 'disabled',
+        socketio: io ? 'ok' : 'disabled'
+      }
+    };
+    
+    return reply.status(dbHealthy ? 200 : 503).send(status);
+  } catch (err) {
+    return reply.status(503).send({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: err.message
+    });
+  }
+});
 
 // Serve the index page
 fastify.get("/", async (request, reply) => {
@@ -1956,20 +2060,32 @@ const start = async () => {
 
     // Initialize Socket.IO after server is listening
     try {
+      // Restrict CORS to allowed origins in production
+      const allowedOrigins = process.env.ALLOWED_ORIGINS 
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']);
+      
       io = new SocketIOServer(fastify.server, {
         cors: {
-          origin: '*',
+          origin: process.env.NODE_ENV === 'production' && allowedOrigins.length > 0 
+            ? allowedOrigins 
+            : '*',
           methods: ['GET', 'POST']
         }
       });
 
       io.on('connection', (socket) => {
-        console.log('Socket connected:', socket.id);
+        // Only log connections in development
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Socket connected:', socket.id);
+        }
 
         socket.on('join', (room) => {
           try {
             socket.join(room);
-            console.log(`Socket ${socket.id} joined room ${room}`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`Socket ${socket.id} joined room ${room}`);
+            }
           } catch (e) { console.error('join error', e); }
         });
 
