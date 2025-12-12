@@ -1513,13 +1513,13 @@ fastify.get("/api/user-metadata", async (request, reply) => {
       }
     });
 
-    // For privacy: public endpoint returns only byDisplay WITHOUT originalName
-    const safeByDisplay = {};
-    Object.entries(byDisplay).forEach(([k, v]) => {
-      safeByDisplay[k] = { displayName: v.displayName, isGuest: v.isGuest, isHost: v.isHost };
+    // Return both mappings for proper name resolution
+    // byOriginal: keyed by original name (lowercase) -> metadata
+    // byDisplay: keyed by override/display name (lowercase) -> metadata
+    return reply.send({
+      byOriginal,  // Includes originalName and displayName
+      byDisplay    // Includes originalName for reverse lookup
     });
-
-    return reply.send({ byDisplay: safeByDisplay });
   } catch (err) {
     console.error("Error fetching user metadata:", err);
     return reply.status(500).send({ error: "Error fetching metadata" });

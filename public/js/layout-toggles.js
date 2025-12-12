@@ -204,15 +204,15 @@
           const participantsText = normalizeParticipantsText(parts[0]);
           // Topic part (after /)
           const topicText = parts.slice(1).join('/').trim(); // In case topic contains /
-          
-          // Make guest names clickable and add "will talk about:"
-          bannerParticipants.innerHTML = linkifyGuestNames(participantsText) + ' will talk about:';
-          
+
+          // Render participants via DOM nodes to avoid broken HTML / escaping
+          renderUpcomingParticipants(participantsText, bannerParticipants);
+
           if (bannerTopic) {
             bannerTopic.textContent = topicText;
           }
         } else {
-          // No / found, just show description
+          // No / found, just show description (still linkified)
           bannerParticipants.innerHTML = linkifyGuestNames(normalizeParticipantsText(description));
           if (bannerTopic) bannerTopic.textContent = '';
         }
@@ -235,6 +235,43 @@
   function normalizeParticipantsText(text) {
     if (!text) return '';
     return text.replace(/[<>]/g, '').trim();
+  }
+
+  // Render upcoming chat participants safely using DOM nodes
+  function renderUpcomingParticipants(text, container) {
+    if (!container) return;
+
+    // Clear previous content
+    container.textContent = '';
+
+    if (!text) return;
+
+    // Remove potential quotes around the whole string
+    const clean = text.replace(/["“”]/g, '').trim();
+    if (!clean) return;
+
+    // Very simple split: "Name1 and Name2" -> [Name1, Name2]
+    const names = clean.split(/\s+and\s+/i).map(n => n.trim()).filter(Boolean);
+
+    names.forEach((name, index) => {
+      if (index > 0) {
+        container.appendChild(document.createTextNode(' and '));
+      }
+
+      const meta = userMetadataCache[name.toLowerCase()];
+      const isGuest = meta?.isGuest === true;
+      const displayName = getDisplayName(name);
+
+      const span = document.createElement('span');
+      span.className = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
+      span.setAttribute('data-guest-name', name);
+      span.textContent = `<${displayName}>`;
+
+      container.appendChild(span);
+    });
+
+    // Trailing text
+    container.appendChild(document.createTextNode(' will talk about:'));
   }
 
   /**
