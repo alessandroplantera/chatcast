@@ -41,7 +41,7 @@
     "sass": "^1.89.1"
   },
   "engines": {
-    "node": ">=18.x"
+    "node": "20.x"
   },
   "keywords": [
     "chatcast",
