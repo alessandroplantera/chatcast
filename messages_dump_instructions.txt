@@ -1,0 +1,65 @@
+Istruzioni per creare e scaricare il dump di SQLite (Railway)
+
+Prerequisiti:
+- `railway` CLI installato e autenticato.
+- Conoscere `--project`, `--environment` e `--service` oppure essere nella directory del progetto se la CLI li ricava.
+
+1) Creare il dump remoto (sul container)
+
+Opzione A — se `sqlite3` è presente nel container (comando singolo):
+railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "sqlite3 /app/.data/messages.db .dump > /tmp/messages_dump.sql"
+
+Opzione B — se `sqlite3` non è presente ma c'è `python3` (fallback robusto):
+railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "python3 - <<'PY'
+import sqlite3
+con = sqlite3.connect('/app/.data/messages.db')
+with open('/tmp/messages_dump.sql','w') as f:
+    for line in con.iterdump():
+        f.write(line + '\\n')
+con.close()
+PY"
+(esempio
+	railway ssh --project=0916e5e9-21d7-4579-8456-3d659e083832 \
+  --environment=b2faaa11-d12b-407b-a7c8-6f3f23b7f4e9 \
+  --service=1f68b2ed-a0ec-4163-802e-9a190f815dc3 \
+  "cat /tmp/messages_dump.sql" > messages_dump.sql
+)
+Note:
+- Metti i valori reali per `<PROJECT>`, `<ENV>` e `<SERVICE>`.
+- Il comando va passato come argomento posizionale a `railway ssh` (non usare `--command`).
+- Se la CLI segnala problemi con le virgolette, prova a racchiudere tutto tra doppi apici oppure fai il heredoc come nell'esempio.
+
+2) Scaricare il dump dal container sul tuo Mac
+
+Esegui (sempre con `railway ssh`):
+railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "cat /tmp/messages_dump.sql" > messages_dump.sql
+
+Questo scrive un file `messages_dump.sql` nella directory corrente del tuo computer.
+
+3) Verifiche locali rapide
+
+ls -lh messages_dump.sql
+wc -l messages_dump.sql
+head -n 40 messages_dump.sql
+
+4) Pulizia (opzionale)
+
+Per rimuovere il dump remoto dopo il download:
+railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "rm -f /tmp/messages_dump.sql"
+
+5) Suggerimenti e sicurezza
+
+- Se il dump contiene dati sensibili, trattalo come riservato e conserva il file in un luogo sicuro.
+- Per resettare il DB in staging usa l'endpoint amministrativo `/admin/reset-db` con l'header `X-Admin-Key: <ADMIN_API_KEY>`, oppure esegui nel container il comando Node che chiama `resetDatabase()` solo se sei sicuro.
+
+Esempio rapido (crea + scarica in sequenza, su zsh):
+railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "python3 - <<'PY'
+import sqlite3
+con = sqlite3.connect('/app/.data/messages.db')
+with open('/tmp/messages_dump.sql','w') as f:
+    for line in con.iterdump():
+        f.write(line + '\\n')
+con.close()
+PY" && railway ssh --project=<PROJECT> --environment=<ENV> --service=<SERVICE> "cat /tmp/messages_dump.sql" > messages_dump.sql
+
+Fine.

@@ -2,7 +2,17 @@ const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
 
-const dbFile = "./.data/messages.db";
+const dbFile = process.env.DATABASE_PATH || process.env.MESSAGES_DB_PATH || './.data/messages.db';
+// Ensure the database directory exists so sqlite can create the file
+const dbDir = path.dirname(dbFile);
+if (!fs.existsSync(dbDir)) {
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`✓ Created database directory: ${dbDir}`);
+  } catch (err) {
+    console.error(`❌ Failed to create database directory ${dbDir}:`, err.message);
+  }
+}
 const exists = require("fs").existsSync(dbFile);
 
 let db; // To store the database connection
