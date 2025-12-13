@@ -406,7 +406,7 @@ Welcome ${user.username}! Use the buttons below to manage the database:
           latestSession = sessions[0];
         }
         
-        const backupDir = './backups';
+        const backupDir = process.env.DATABASE_BACKUP_DIR || '/app/.data/backups';
         let backupInfo = 'No backups found';
         if (fs.existsSync(backupDir)) {
           const backups = fs.readdirSync(backupDir).filter(f => f.endsWith('.backup'));
@@ -458,11 +458,11 @@ Status: ${latestSession.status || 'unknown'}` : '📭 No sessions found'}
       const path = require('path');
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupDir = './backups';
-      const dbFile = './.data/messages.db';
-      
+      const backupDir = process.env.DATABASE_BACKUP_DIR || '/app/.data/backups';
+      const dbFile = process.env.DATABASE_PATH || process.env.MESSAGES_DB_PATH || './.data/messages.db';
+
       if (!fs.existsSync(backupDir)) {
-        fs.mkdirSync(backupDir, { recursive: true });
+        try { fs.mkdirSync(backupDir, { recursive: true }); console.log(`✓ Created backupDir at ${backupDir}`); } catch(e){ console.warn('Could not create backupDir', e.message); }
       }
       
       if (fs.existsSync(dbFile)) {
@@ -909,15 +909,15 @@ This action CANNOT be undone!`,
       const fs = require('fs');
       const path = require('path');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupDir = './backups';
-      const dbFile = './.data/messages.db';
-      
+      const backupDir = process.env.DATABASE_BACKUP_DIR || '/app/.data/backups';
+      const dbFile = process.env.DATABASE_PATH || process.env.MESSAGES_DB_PATH || './.data/messages.db';
+
       let backupCreated = false;
       if (fs.existsSync(dbFile)) {
         if (!fs.existsSync(backupDir)) {
-          fs.mkdirSync(backupDir, { recursive: true });
+          try { fs.mkdirSync(backupDir, { recursive: true }); console.log(`✓ Created backupDir at ${backupDir}`); } catch(e){ console.warn('Could not create backupDir', e.message); }
         }
-        
+
         const backupPath = path.join(backupDir, `messages.db.${timestamp}.backup`);
         fs.copyFileSync(dbFile, backupPath);
         backupCreated = true;
