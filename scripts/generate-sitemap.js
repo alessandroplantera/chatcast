@@ -1,9 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
+// Load .env when running this script locally or in build steps
+try { require('dotenv').config(); } catch (e) { /* dotenv optional */ }
+
 const publicDir = path.join(__dirname, '..', 'public');
 const outFile = path.join(publicDir, 'sitemap.xml');
 const APP_URL = process.env.APP_URL || 'https://www.example.com';
+console.log('generate-sitemap: using APP_URL =', APP_URL);
+// Try to load DB helper to include session permalinks
+let messagesDb = null;
+try {
+  messagesDb = require('../src/messagesDb');
+} catch (e) {
+  // DB may not be available during build; continue without sessions
+}
 
 function formatDate(d) {
   return d.toISOString();
@@ -55,15 +66,34 @@ function generateXml(urls) {
   return header + body + '\n' + footer;
 }
 
-(function main() {
+(async function main() {
   try {
     if (!fs.existsSync(publicDir)) {
       console.error('public directory not found:', publicDir);
       process.exit(1);
     }
-
     const urls = buildUrls();
-    const xml = generateXml(urls);
+
+    // Include session permalinks from DB if available
+    let combined = Array.from(urls);
+    if (messagesDb && typeof messagesDb.getAllSessionsWithDetails === 'function') {
+      try {
+        const sessions = await messagesDb.getAllSessionsWithDetails();
+        sessions.forEach(s => {
+          if (!s || !s.session_id) return;
+          const pathUrl = `/messages-view?session_id=${encodeURIComponent(s.session_id)}`;
+          const lastmod = s.start_date ? new Date(s.start_date) : new Date();
+          const loc = `${APP_URL}${pathUrl}`;
+          if (!combined.find(u => u.loc === loc)) {
+            combined.push({ loc, lastmod: formatDate(lastmod) });
+          }
+        });
+      } catch (e) {
+        console.warn('Could not read sessions from DB for sitemap:', e && e.message ? e.message : e);
+      }
+    }
+
+    const xml = generateXml(combined);
 
     fs.writeFileSync(outFile, xml, 'utf8');
     console.log('Sitemap written to', outFile);

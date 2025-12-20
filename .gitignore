@@ -17,3 +17,15 @@ logs/
 public/style.css
 public/style.css.map
 public/dist/
+public/sitemap.xml
+public/robots.txt
+
+# Generated/temporary DB backups and runtime data
+public/backups/
+.data/backups/
+.data/messages.db
+data/*.db
+
+# Generated JS bundles
+public/js/bundle.*.js
+
