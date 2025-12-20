@@ -2,126 +2,126 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://staging-chatcast-production.up.railway.app/</loc>
-    <lastmod>2025-12-20T20:20:49.621Z</lastmod>
+    <lastmod>2025-12-20T20:32:57.910Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_6</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_6</loc>
     <lastmod>2025-12-20T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_8</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_8</loc>
     <lastmod>2025-12-19T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_7</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_7</loc>
     <lastmod>2025-12-18T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014024_0</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014024_0</loc>
     <lastmod>2025-12-18T15:03:34.024Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_2</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_2</loc>
     <lastmod>2025-12-14T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_1</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_1</loc>
     <lastmod>2025-12-12T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_5</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_5</loc>
     <lastmod>2025-12-07T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_2</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_2</loc>
     <lastmod>2025-12-06T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_5</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_5</loc>
     <lastmod>2025-12-02T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_6</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_6</loc>
     <lastmod>2025-12-01T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_4</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_4</loc>
     <lastmod>2025-11-28T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_9</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_9</loc>
     <lastmod>2025-11-28T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820076_0</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820076_0</loc>
     <lastmod>2025-11-28T12:13:40.076Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_9</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_9</loc>
     <lastmod>2025-11-27T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_8</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_8</loc>
     <lastmod>2025-11-26T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_1</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_1</loc>
     <lastmod>2025-11-24T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_4</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_4</loc>
     <lastmod>2025-11-24T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_7</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_7</loc>
     <lastmod>2025-11-22T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766232820078_3</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766232820078_3</loc>
     <lastmod>2025-11-22T12:13:40.078Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://staging-chatcast-production.up.railway.app/messages-view?session_id=test_session_1766243014025_3</loc>
+    <loc>https://staging-chatcast-production.up.railway.app/sessions/test_session_1766243014025_3</loc>
     <lastmod>2025-11-21T15:03:34.025Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

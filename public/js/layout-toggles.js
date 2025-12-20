@@ -911,7 +911,7 @@
   // Navigation fallback (when inline thread is not present)
   function viewSession(sessionId) {
     if (sessionId) {
-      window.location.href = `/messages-view?session_id=${sessionId}`;
+      window.location.href = `/sessions/${sessionId}`;
     }
   }
 
@@ -1095,10 +1095,15 @@
       });
     } catch (e) { /* ignore */ }
 
-    // Auto-open thread if URL contains session_id on initial page load
+    // Auto-open thread if URL contains session_id (query) or pathname (/sessions/:id)
     try {
       const params = new URLSearchParams(window.location.search);
-      const initialSession = params.get('session_id');
+      let initialSession = params.get('session_id');
+      if (!initialSession) {
+        // Check for /sessions/:id path
+        const m = window.location.pathname.match(/^\/sessions\/(.+)$/);
+        if (m && m[1]) initialSession = decodeURIComponent(m[1]);
+      }
       if (initialSession) {
         const el = document.querySelector(`.conversation-list__item[data-session-id="${initialSession}"]`);
         if (el) markActiveItem(el);

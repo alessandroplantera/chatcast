@@ -81,7 +81,7 @@ function generateXml(urls) {
         const sessions = await messagesDb.getAllSessionsWithDetails();
         sessions.forEach(s => {
           if (!s || !s.session_id) return;
-          const pathUrl = `/messages-view?session_id=${encodeURIComponent(s.session_id)}`;
+          const pathUrl = `/sessions/${encodeURIComponent(s.session_id)}`;
           const lastmod = s.start_date ? new Date(s.start_date) : new Date();
           const loc = `${APP_URL}${pathUrl}`;
           if (!combined.find(u => u.loc === loc)) {

@@ -1612,13 +1612,28 @@ fastify.get("/messages-view", async (request, reply) => {
       }
     }
 
-    return reply.safeView("messages.hbs", {
-      session: sessionDetails,
-      messages,
-    });
+    // Redirect old query-based permalink to the new clean route
+    return reply.redirect(301, `/sessions/${encodeURIComponent(sessionId)}`);
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error rendering messages view.");
+  }
+});
+
+// Clean permalink route for a session (SEO-friendly)
+fastify.get('/sessions/:id', async (request, reply) => {
+  try {
+    const sessionId = request.params.id;
+    if (!sessionId) return reply.redirect('/sessions-view');
+
+    // Render the main app layout; client JS will open the thread based on pathname
+    return reply.safeView('layouts/main-wrapper.hbs', {
+      pageTitle: `Session - ${sessionId} - Dialogs`,
+      canonicalUrl: `${process.env.APP_URL || ''}${request.raw.url}`,
+    });
+  } catch (err) {
+    console.error('Error rendering session permalink:', err);
+    return reply.status(500).send('Error rendering session');
   }
 });
 
