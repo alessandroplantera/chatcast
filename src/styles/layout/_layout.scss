@@ -12,6 +12,7 @@
 .upcoming-chat-banner {
 	color: var(--text-body-light);
 	padding: calc(var(--base) / 4) calc(var(--base) / 2);
+	padding-bottom:0.5rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
@@ -135,7 +136,7 @@
 
 
 .layout__col--center {
-	background-color: var(--bg-light);
+	background-color: var(--bg-thread);
 	opacity: 0;
 	transition: opacity .25s ease;
 }
@@ -157,13 +158,11 @@
 }
 
 .thread-header {
-	padding: .75rem 1rem;
-	border-bottom: 1px solid var(--border-color);
+	padding: calc(var(--base) / 4) calc(var(--base) / 2);
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
 	align-items: flex-start;
-	gap: var(--spacing-xl);
 	background-color: var(--bg-black);
 }
 
@@ -215,7 +214,7 @@
 
 .sidebar.is-collapsed .sidebar-tab {
 	pointer-events: auto;
-	padding-inline: 0.21rem;
+	padding-inline: 0.75rem;
 }
 
 .sidebar:not(.is-collapsed) {
@@ -246,7 +245,7 @@
 	justify-content: space-between;
 	align-items: center;
 	background: var(--bg-black);
-	padding: 0.25rem 0.4rem;
+	padding:calc(var(--base) / 4) calc(var(--base) / 2);
 	min-height: fit-content;
 }
 
@@ -263,7 +262,6 @@
 .sidebar__tabs {
 	display: flex;
 	align-items: stretch;
-	border-bottom: 1px solid var(--border-color);
 	background: var(--bg-black);
 	min-height: 0.5rem;
 	max-height: 1.5rem;
@@ -359,7 +357,6 @@
 	justify-content: space-between;
 	align-items: center;
 	padding: .75rem 1rem;
-	border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar__title {
@@ -434,11 +431,11 @@
 
 .icon-btn {
 	background: transparent;
+	margin-left: auto;
 	color: var(--text-body-light);
-	line-height: 0 !important; 
 	cursor: pointer;
 	font: inherit;
-	transition: background .15s ease, border-color .15s ease;
+    font-size: var(--xl);
 }
 
 /* ===========================================
@@ -509,7 +506,6 @@
 		max-height: 85vh;
 		max-height: 85dvh;
 		z-index: 200;
-		border-top: 1px solid var(--border-color);
 		border-left: none;
 		border-right: none;
 		background: var(--bg-black);
@@ -555,7 +551,6 @@
 		padding: calc(var(--base) / 4) calc(var(--base) / 2);
 		background: var(--bg-black);
 		border: none;
-		border-top: 1px solid var(--border-color);
 		font-size: var(--base);
 	}
 	.upcoming-chat-banner__topic {
@@ -572,7 +567,6 @@
 	}
 	/* Position about and guest tabs side by side */
 	.sidebar-tab--about {
-		border-right: 1px solid var(--border-color);
 		width: 100%;
 	}
 
@@ -592,8 +586,8 @@
 
 	/* Arrow icon in tab */
 	.sidebar-tab__arrow {
-		width: 1rem;
-		height: 1rem;
+		width: var(--xl);
+		height: var(--xl);
 		transition: transform .25s ease;
 	}
 

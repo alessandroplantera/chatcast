@@ -1156,6 +1156,25 @@ fastify.register(require("@fastify/view"), {
   templates: path.join(__dirname, "src/views"),
 });
 
+// Fetch Notion "about" page once per request and expose to views via safeView
+fastify.decorateReply('safeView', function(view, data) {
+  data = data || {};
+  // merge about data if present on request
+  const about = this.request && this.request.aboutData ? this.request.aboutData : null;
+  if (about) data.about = about;
+  return this.view(view, data);
+});
+
+fastify.addHook('preHandler', async (request, reply) => {
+  try {
+    const aboutPage = await notionCms.getPageByTitle('about');
+    // attach to request for decorator to pick up
+    request.aboutData = aboutPage || null;
+  } catch (err) {
+    request.aboutData = null;
+  }
+});
+
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -1258,16 +1277,16 @@ fastify.get("/", async (request, reply) => {
       };
     });
     
-    return reply.view("homepage.hbs", { sessions: enrichedSessions });
+    return reply.safeView("homepage.hbs", { sessions: enrichedSessions });
   } catch (err) {
     console.error(err);
-    return reply.view("homepage.hbs", { sessions: [] });
+    return reply.safeView("homepage.hbs", { sessions: [] });
   }
 });
 
 // Nuova pagina About
 fastify.get("/about", async (request, reply) => {
-  return reply.view("about.hbs");
+  return reply.safeView("about.hbs");
 });
 
 // Enhanced endpoint to get sessions with details
@@ -1533,7 +1552,7 @@ fastify.get("/sessions-view", async (request, reply) => {
       };
     });
     
-    return reply.view("index.hbs", { sessions: sanitizedSessions });
+    return reply.safeView("index.hbs", { sessions: sanitizedSessions });
   } catch (err) {
     console.error(err);
     return reply.status(500).send("Error rendering sessions view.");
@@ -1588,7 +1607,7 @@ fastify.get("/messages-view", async (request, reply) => {
       }
     }
 
-    return reply.view("messages.hbs", {
+    return reply.safeView("messages.hbs", {
       session: sessionDetails,
       messages,
     });

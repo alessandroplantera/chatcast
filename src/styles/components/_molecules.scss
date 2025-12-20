@@ -12,7 +12,7 @@
 	cursor: pointer;
 }
 .conversation-list__item:hover {
-	background: var(--hover-bg);
+	background: var(--bg-active);
 }
 /* make .guest turn white on item hover */
 .conversation-list__item:hover {
@@ -31,7 +31,7 @@
 		}
 }
 .conversation-list__item.is-active {
-	background: var(--bg-black) !important;
+	background: var(--bg-active) !important;
 	.conversation-list__header-title {
 		color: var(--text-body-light);
 	}
@@ -81,7 +81,7 @@
 .conversation-list__item:nth-child(even) {
 	background: var(--bg-light);
 	&:hover {
-		background: var(--hover-bg);
+		background: var(--bg-active);
 	}
 }
 
