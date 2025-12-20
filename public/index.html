@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatCast - Sessions</title>
+  <title>Dialogs - Sessions</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
@@ -12,7 +12,7 @@
     <div class="container">
       <div class="header-logo">
         <i class="fas fa-comments fa-lg"></i>
-        <span class="logo-text">ChatCast</span>
+        <span class="logo-text">Dialogs</span>
       </div>
       <div class="page-ticker">someghint very important will happen tonight etc etc...</h1>
     </div>
@@ -186,7 +186,7 @@ async function fetchSessionDetails() {
     
     // Update session info in UI
     document.getElementById('session-title').textContent = session.title || `Session: ${sessionId}`;
-    document.title = `ChatCast - ${session.title || `Session: ${sessionId}`}`;
+    document.title = `Dialogs - ${session.title || `Session: ${sessionId}`}`;
     
     document.getElementById('session-date').textContent = 
       `Started: ${formatDate(session.start_date)}`;

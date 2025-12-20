@@ -1,0 +1,28 @@
+{{!-- Meta partial: expects pageTitle, pageDescription, canonicalUrl, pageImage --}}
+<title>{{#if pageTitle}}{{pageTitle}}{{else}}Dialogs{{/if}}</title>
+<meta name="description" content="{{#if pageDescription}}{{pageDescription}}{{else}}Dialogs — conversations and recordings.{{/if}}">
+{{#if canonicalUrl}}<link rel="canonical" href="{{canonicalUrl}}">{{/if}}
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Dialogs">
+<meta property="og:title" content="{{#if pageTitle}}{{pageTitle}}{{else}}Dialogs{{/if}}">
+<meta property="og:description" content="{{#if pageDescription}}{{pageDescription}}{{else}}Dialogs — conversations and recordings.{{/if}}">
+{{#if canonicalUrl}}<meta property="og:url" content="{{canonicalUrl}}">{{/if}}
+{{#if pageImage}}<meta property="og:image" content="{{pageImage}}">{{/if}}
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{#if pageTitle}}{{pageTitle}}{{else}}Dialogs{{/if}}">
+<meta name="twitter:description" content="{{#if pageDescription}}{{pageDescription}}{{else}}Dialogs — conversations and recordings.{{/if}}">
+{{#if pageImage}}<meta name="twitter:image" content="{{pageImage}}">{{/if}}
+
+<!-- JSON-LD basic WebPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "{{#if pageTitle}}{{pageTitle}}{{else}}Dialogs{{/if}}",
+  "description": "{{#if pageDescription}}{{pageDescription}}{{else}}Dialogs — conversations and recordings.{{/if}}"{{#if canonicalUrl}},
+  "url": "{{canonicalUrl}}"{{/if}}
+}
+</script>

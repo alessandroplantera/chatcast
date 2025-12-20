@@ -12,7 +12,8 @@
     "sass:watch": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
     "sass:dev": "sass src/styles/main.scss public/style.css --watch --style=expanded --source-map",
     "js:build": "node scripts/build-js.js",
-    "build": "npm run sass:build && npm run js:build",
+    "build": "npm run sass:build && npm run js:build && npm run sitemap:build",
+    "sitemap:build": "node scripts/generate-sitemap.js",
     "init-db": "node init-databases.js",
     "reset-db": "rm -f data/*.db && npm run init-db",
     "db:backup": "node scripts/db-backup.js",
@@ -46,10 +47,10 @@
     "node": "20.x"
   },
   "keywords": [
-    "chatcast",
-    "conversations",
-    "recording",
-    "telegram",
-    "fastify"
+  "dialogs",
+  "conversations",
+  "recording",
+  "telegram",
+  "fastify"
   ]
 }

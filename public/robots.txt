@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+# Sitemaps: this project generates the sitemap at deploy time.
+# Replace the following line during your deploy pipeline with the real URL to the sitemap.
+Sitemap: https://www.example.com/sitemap.xml
+

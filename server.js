@@ -1162,6 +1162,11 @@ fastify.decorateReply('safeView', function(view, data) {
   // merge about data if present on request
   const about = this.request && this.request.aboutData ? this.request.aboutData : null;
   if (about) data.about = about;
+  // Add default SEO fields if not provided
+  data.pageTitle = data.pageTitle || (data.title ? `${data.title} - Dialogs` : 'Dialogs');
+  data.pageDescription = data.pageDescription || data.description || 'Dialogs — conversations and recordings.';
+  data.canonicalUrl = data.canonicalUrl || `${process.env.APP_URL || ''}${this.request.raw.url}`;
+  data.pageImage = data.pageImage || '/graphics/og-default.png';
   return this.view(view, data);
 });
 
