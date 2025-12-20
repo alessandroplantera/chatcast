@@ -4,6 +4,7 @@
   const threadSection = document.getElementById('col-center');
   const threadRoot = document.getElementById('message-thread-root');
   const sidebar = document.getElementById('col-right');
+  const initialTitle = document.title || 'Dialogs';
 
   // About panel elements
   const aboutPanel = document.getElementById('about-panel');
@@ -98,6 +99,13 @@
         }
         SocketClient.leaveSession(currentSocketSession);
         currentSocketSession = null;
+      }
+    } catch (e) { /* ignore */ }
+    // Restore URL/title when closing inline thread
+    try {
+      if (window.history && window.history.pushState) {
+        window.history.pushState(null, initialTitle, window.location.pathname);
+        document.title = initialTitle;
       }
     } catch (e) { /* ignore */ }
   }
@@ -747,6 +755,13 @@
       renderThreadHeader(data.session, data.userMetadata);
       renderMessages(data.messages);
       showThread();
+      // Update document title and push a permalink into history
+      try {
+        const titleText = (data.session && data.session.title) ? `Dialogs - ${data.session.title}` : initialTitle;
+        document.title = titleText;
+        const newUrl = window.location.pathname + '?session_id=' + encodeURIComponent(sessionId);
+        if (window.history && window.history.pushState) window.history.pushState({ sessionId }, titleText, newUrl);
+      } catch (e) { /* ignore */ }
 
       // --- Socket: join the session room and listen for incoming messages ---
       try {
@@ -1066,6 +1081,30 @@
     // setupHoverEffects();
 
     const hasInline = !!(threadSection && threadRoot);
+    // Handle browser back/forward to open/close inline threads
+    try {
+      window.addEventListener('popstate', function (e) {
+        const state = e.state;
+        if (state && state.sessionId) {
+          const el = document.querySelector(`.conversation-list__item[data-session-id="${state.sessionId}"]`);
+          if (el) markActiveItem(el);
+          loadThread(state.sessionId);
+        } else {
+          hideThread();
+        }
+      });
+    } catch (e) { /* ignore */ }
+
+    // Auto-open thread if URL contains session_id on initial page load
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const initialSession = params.get('session_id');
+      if (initialSession) {
+        const el = document.querySelector(`.conversation-list__item[data-session-id="${initialSession}"]`);
+        if (el) markActiveItem(el);
+        loadThread(initialSession);
+      }
+    } catch (e) { /* ignore */ }
     if (hasInline) {
       document.addEventListener('click', function (e) {
         if (e.target.closest('.js-thread-close')) {
