@@ -194,7 +194,7 @@
     const bannerTime = document.getElementById('upcoming-chat-time');
     const bannerParticipants = document.getElementById('upcoming-chat-participants');
     const bannerTopic = document.getElementById('upcoming-chat-topic');
-    
+
     if (!bannerParticipants) return;
     
     // Wait for guests to be preloaded first
@@ -216,28 +216,18 @@
         if (date && bannerTime) {
           bannerTime.textContent = formatBannerTime(date);
         }
-        
-        // Parse Description: "Guest1 and Guest2 / Topic"
+        // Description comes entirely from Notion; we no longer split on '/'
         const description = data.properties.Description || data.properties.description || '';
-        const parts = description.split('/').map(s => s.trim());
-        
-        if (parts.length >= 2) {
-          // Participants part (before /) - normalize to avoid duplicated < > in UI
-          const participantsText = normalizeParticipantsText(parts[0]);
-          // Topic part (after /)
-          const topicText = parts.slice(1).join('/').trim(); // In case topic contains /
+        const normalized = normalizeParticipantsText(description);
 
-          // Render participants via DOM nodes to avoid broken HTML / escaping
-          renderUpcomingParticipants(participantsText, bannerParticipants);
-
-          if (bannerTopic) {
-            bannerTopic.textContent = topicText;
-          }
+        if (normalized) {
+          // Render full sentence, with participant names turned into clickable badges
+          bannerParticipants.innerHTML = linkifyGuestNames(normalized);
         } else {
-          // No / found, just show description (still linkified)
-          bannerParticipants.innerHTML = linkifyGuestNames(normalizeParticipantsText(description));
-          if (bannerTopic) bannerTopic.textContent = '';
+          bannerParticipants.textContent = '';
         }
+
+        if (bannerTopic) bannerTopic.textContent = '';
       } else {
         bannerParticipants.textContent = 'No Upcoming Chats Scheduled';
         if (bannerDate) bannerDate.textContent = '';
@@ -312,9 +302,6 @@
 
       container.appendChild(span);
     });
-
-    // Trailing text
-    container.appendChild(document.createTextNode(' will talk about:'));
   }
 
   /**

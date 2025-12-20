@@ -869,11 +869,17 @@ body {
     border: none;
     font-size: var(--base);
   }
-  .upcoming-chat-banner__topic {
-    font-size: var(--lg);
+  .upcoming-chat-banner__meta {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.5rem;
   }
-  .upcoming-chat-banner__participants {
-    font-size: var(--lg);
+  .upcoming-chat-banner__participants,
+  .upcoming-chat-banner__topic {
+    font-size: var(--xl);
+    margin: 0;
+    display: inline;
   }
   .upcoming-chat-banner__date {
     font-size: var(--lg);
