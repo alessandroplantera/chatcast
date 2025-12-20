@@ -54,14 +54,15 @@
 .main-layout {
 	height: 100vh;
 	height: 100dvh; /* Dynamic viewport height - fixes Safari mobile */
-	/* Fallback for older Safari */
-	@supports (-webkit-touch-callout: none) {
-		height: -webkit-fill-available;
-	}
 	background-color: var(--bg-black);
 	display: flex;
 	font-size: var(--base);
 	flex-direction: row;
+
+	/* Fallback for older Safari */
+	@supports (-webkit-touch-callout: none) {
+		height: -webkit-fill-available;
+	}
 }
 
 /* Grid container controlling columns visibility */
@@ -122,9 +123,11 @@
 
 .layout__col {
 	min-width: 0;
+	min-height: 0; /* allow children with overflow:auto to scroll correctly */
 	width: 100%;
+	height: 100dvh; /* iOS needs explicit height */
 	overflow: hidden;
-	position: relative;
+	position: relative; /* iOS needs position for scroll context */
 	display: flex;
 	flex-direction: column;
 	background: var(--bg-black);
@@ -139,6 +142,9 @@
 	background-color: var(--bg-thread);
 	opacity: 0;
 	transition: opacity .25s ease;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden; /* contain children */
 }
 
 .layout__col--center[hidden] {
@@ -150,14 +156,21 @@
 	min-width: 35%;
 }
 
+/* Message thread - scrollable area below header */
 .layout__col--center .message-thread {
-	flex: 1;
-	overflow-y: auto;
+	flex: 1 1 0; /* take remaining space, with 0 basis for iOS */
+	min-height: 0; /* critical for flex scroll on iOS */
+	height: 0; /* force flex to calculate height - iOS fix */
+	overflow-y: scroll; /* scroll not auto for iOS */
+	-webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+	overscroll-behavior-y: contain;
+	touch-action: pan-y; /* enable vertical panning on mobile */
 	padding: .75rem 1rem;
 	padding-bottom: 4rem;
 }
 
 .thread-header {
+	flex-shrink: 0; /* don't shrink - keep header visible */
 	padding: calc(var(--base) / 4) calc(var(--base) / 2);
 	display: flex;
 	flex-direction: column;
@@ -554,7 +567,7 @@
 		font-size: var(--base);
 	}
 	.upcoming-chat-banner__topic {
-		font-size: var(--2xl);
+		font-size: var(--lg);
 	}
 	.upcoming-chat-banner__participants{
 		font-size: var(--lg);
@@ -643,7 +656,9 @@
 		flex: 1;
 		overflow-y: auto;
 	}
-
+	.thread-header {
+		gap: var(--spacing-sm);
+	}
 	/* Animation for mobile bottom sheet */
 	@keyframes bottomSheetSlide {
 		from {

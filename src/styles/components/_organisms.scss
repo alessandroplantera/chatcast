@@ -3,8 +3,15 @@
 
 /* Conversation list organism container (already styled partly in molecules) */
 .conversation-list {
-	overflow-y: auto;
+	overflow-y: scroll; /* use scroll instead of auto for iOS */
 	width: 100%;
+	flex: 1 1 0%; /* explicit flex-basis for iOS */
+	min-height: 0; /* enable proper overflow handling across browsers */
+	max-height: 100%; /* iOS needs max-height constraint */
+	-webkit-overflow-scrolling: touch; /* enable momentum scrolling on iOS */
+	overscroll-behavior-y: contain; /* prevent parent/page from hijacking scroll */
+	touch-action: pan-y; /* allow vertical panning */
+	position: relative; /* scroll context for iOS */
 }
 
 /* Message thread */
@@ -13,6 +20,14 @@
 	flex-direction: column;
 	gap: .75rem;
 	padding: 1rem;
+	flex: 1 1 0%; /* explicit flex-basis for iOS */
+	min-height: 0;
+	max-height: 100%; /* iOS needs max-height constraint */
+	overflow-y: scroll; /* use scroll instead of auto for iOS */
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior-y: contain;
+	touch-action: pan-y; /* allow vertical panning */
+	position: relative; /* scroll context for iOS */
 }
 
 .message-thread__message {

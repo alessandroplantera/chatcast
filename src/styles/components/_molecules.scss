@@ -2,7 +2,12 @@
 @use '../abstracts/variables' as *;
 
 /* Conversation list item */
-.conversation-list { display: flex; flex-direction: column; }
+.conversation-list {
+	display: flex;
+	padding-bottom:2rem;
+	overflow-y: scroll;
+	flex-direction: column;
+}
 
 .conversation-list__item {
 	width: 100%;
