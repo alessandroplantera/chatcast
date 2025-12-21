@@ -372,15 +372,29 @@ async function getUserMetadata() {
       const name = page.title;
       if (!name || name.toLowerCase() === 'upcoming-chat') continue;
 
-      const status = page.properties?.Status; // Array: ['Guest'] or ['Host'] or []
-      const override = page.properties?.Override; // String
+      const props = page.properties || {};
+      const status = props.Status; // Array: ['Guest'] or ['Host'] or []
+      const override = props.Override; // String
+      const role = props.Role || props.Type || null;
+
+      // Heuristic: only treat a page as a "user/person" if it has an explicit Status
+      // containing Guest/Host, or if it has a Role/Type explicitly set to 'Person'.
+      const isGuest = status && Array.isArray(status) && status.includes('Guest');
+      const isHost = status && Array.isArray(status) && status.includes('Host');
+      const isPersonRole = role && String(role).toLowerCase() === 'person';
+
+      if (!isGuest && !isHost && !isPersonRole) {
+        // Skip pages that do not look like people to avoid accidental replacements
+        continue;
+      }
 
       userMap.set(name.toLowerCase(), {
         originalName: name,
         status: status && status.length > 0 ? status : [],
         override: override || null,
-        isGuest: status && status.includes('Guest'),
-        isHost: status && status.includes('Host')
+        isGuest: Boolean(isGuest),
+        isHost: Boolean(isHost),
+        type: isPersonRole ? 'person' : null
       });
     }
 

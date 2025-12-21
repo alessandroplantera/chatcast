@@ -1913,14 +1913,31 @@ fastify.get("/api/notion/upcoming-chat", async (request, reply) => {
     
     if (sanitizedUpcoming.properties?.Description) {
       let desc = sanitizedUpcoming.properties.Description;
-      // Replace each original username with its display name
+
+      // Replace only pages that represent people (marked as Guest or Host)
+      // This avoids wrapping generic pages like "about" or other unrelated titles.
       userMetadata.forEach((meta, originalName) => {
-        if (meta.override && originalName !== meta.override.toLowerCase()) {
-          // Case-insensitive replacement of originalName with displayName
-          const regex = new RegExp(`\\b${originalName}\\b`, 'gi');
-          desc = desc.replace(regex, meta.override);
-        }
+        const isPerson = Boolean(meta.isGuest) || Boolean(meta.isHost);
+        if (!isPerson) return; // skip non-person pages
+
+        // Determine display name (override if present, otherwise original name)
+        const displayName = meta.override || meta.originalName || originalName;
+
+        // Build candidates to match in the text: both original name and override (if present)
+        const candidates = new Set();
+        if (meta.originalName) candidates.add(meta.originalName);
+        if (meta.override) candidates.add(meta.override);
+
+        candidates.forEach((candidate) => {
+          if (!candidate) return;
+          // Escape regex special chars
+          const escaped = String(candidate).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // Match either <Name> token or whole-word occurrences (case-insensitive)
+          const re = new RegExp(`(?:<${escaped}>|\\b${escaped}\\b)`, 'gi');
+          desc = desc.replace(re, displayName);
+        });
       });
+
       sanitizedUpcoming.properties = {
         ...sanitizedUpcoming.properties,
         Description: desc
