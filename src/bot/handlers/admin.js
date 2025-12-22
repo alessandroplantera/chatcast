@@ -217,6 +217,10 @@ This action CANNOT be undone!`,
 🧾 LIST SESSIONS - Show recent sessions with titles
 ⬅️ BACK TO MAIN - Return to main menu
 
+📦 Backup Management:
+/listbackups - List all available backups
+/downloadbackup <filename> - Download a backup file
+
 🧹 Deletion:
 /deletesession <session_id> - Permanently delete a session and its messages`;
 
@@ -304,6 +308,111 @@ This action CANNOT be undone!`,
     } catch (err) {
       console.error('Error deleting session from bot command:', err);
       ctx.reply(`❌ Failed to delete session ${sessionId}: ${err.message}`);
+    }
+  });
+
+  // List all backups (admin-only)
+  bot.command('listbackups', async (ctx) => {
+    const user = getUserInfo(ctx);
+    if (!isAdminUser(user.id)) {
+      await ctx.reply('🚫 You are not authorized to view backups.');
+      return;
+    }
+
+    try {
+      const backupDir = CONFIG.DATABASE_BACKUP_DIR;
+
+      if (!fs.existsSync(backupDir)) {
+        await ctx.reply('📂 No backup directory found.\n\nCreate a backup first using 💾 BACKUP DB');
+        return;
+      }
+
+      const files = fs.readdirSync(backupDir);
+      const backupFiles = files
+        .filter(f => f.endsWith('.backup'))
+        .map(filename => {
+          const filePath = path.join(backupDir, filename);
+          const stats = fs.statSync(filePath);
+          return {
+            filename,
+            size: stats.size,
+            sizeKB: (stats.size / 1024).toFixed(2),
+            modified: stats.mtime
+          };
+        })
+        .sort((a, b) => b.modified - a.modified); // Most recent first
+
+      if (backupFiles.length === 0) {
+        await ctx.reply('📂 No backups found.\n\nCreate a backup first using 💾 BACKUP DB');
+        return;
+      }
+
+      const lines = backupFiles.map((f, idx) => {
+        const date = f.modified.toLocaleString();
+        return `${idx + 1}. ${f.filename}\n   📅 ${date}\n   💾 ${f.sizeKB} KB`;
+      });
+
+      let msg = `📦 Available Backups (${backupFiles.length})\n\n`;
+      msg += lines.join('\n\n');
+      msg += '\n\nUse /downloadbackup <filename> to download a backup.';
+
+      await ctx.reply(msg);
+    } catch (err) {
+      console.error('Error listing backups from bot command:', err);
+      await ctx.reply(`❌ Failed to list backups: ${err.message}`);
+    }
+  });
+
+  // Download a specific backup (admin-only)
+  bot.command('downloadbackup', async (ctx) => {
+    const user = getUserInfo(ctx);
+    if (!isAdminUser(user.id)) {
+      await ctx.reply('🚫 You are not authorized to download backups.');
+      return;
+    }
+
+    const parts = ctx.message.text.split(' ').slice(1);
+    const filename = parts.join(' ').trim();
+
+    if (!filename) {
+      await ctx.reply('Usage: /downloadbackup <filename>\n\nUse /listbackups to see available backups.');
+      return;
+    }
+
+    try {
+      const backupDir = CONFIG.DATABASE_BACKUP_DIR;
+      const filePath = path.join(backupDir, filename);
+
+      // Security: ensure the file is within the backup directory
+      const resolvedPath = path.resolve(filePath);
+      const resolvedBackupDir = path.resolve(backupDir);
+
+      if (!resolvedPath.startsWith(resolvedBackupDir)) {
+        await ctx.reply('🚫 Access denied: Invalid file path');
+        return;
+      }
+
+      // Check if file exists and is a backup file
+      if (!fs.existsSync(filePath) || !filename.endsWith('.backup')) {
+        await ctx.reply(`❌ Backup file not found: ${filename}\n\nUse /listbackups to see available backups.`);
+        return;
+      }
+
+      const stats = fs.statSync(filePath);
+      const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+      await ctx.reply(`📤 Sending backup file...\n\n📁 ${filename}\n💾 Size: ${sizeMB} MB`);
+
+      // Send the file
+      await ctx.replyWithDocument({
+        source: filePath,
+        filename: filename
+      });
+
+      await ctx.reply('✅ Backup sent successfully!');
+    } catch (err) {
+      console.error('Error downloading backup from bot command:', err);
+      await ctx.reply(`❌ Failed to download backup: ${err.message}`);
     }
   });
 
