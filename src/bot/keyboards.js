@@ -35,9 +35,12 @@ const keyboards = {
     ],
     [
       Markup.button.text('🗑️ RESET DB'),
-      Markup.button.text('❓ ADMIN HELP'),
+      Markup.button.text('🧾 LIST SESSIONS'),
     ],
-    [Markup.button.text('⬅️ BACK TO MAIN')],
+    [
+      Markup.button.text('❓ ADMIN HELP'),
+      Markup.button.text('⬅️ BACK TO MAIN'),
+    ],
   ]).resize(),
 
   // Inline keyboard for database reset confirmation
@@ -59,6 +62,7 @@ const BUTTON_MESSAGES = [
   '📊 DB STATUS',
   '💾 BACKUP DB',
   '🗑️ RESET DB',
+  '🧾 LIST SESSIONS',
   '❓ ADMIN HELP',
   '⬅️ BACK TO MAIN'
 ];

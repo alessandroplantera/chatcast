@@ -617,6 +617,49 @@ async function checkAndFixSessionStatuses() {
   });
 }
 
+// Delete a single session and all its messages
+async function deleteSession(sessionId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      return reject(new Error('Database not initialized'));
+    }
+
+    db.serialize(() => {
+      const result = { messagesDeleted: 0, sessionsDeleted: 0 };
+
+      db.run(
+        'DELETE FROM Messages WHERE session_id = ?',
+        [sessionId],
+        function (err) {
+          if (err) {
+            console.error(`Error deleting messages for session ${sessionId}:`, err);
+            reject(err);
+            return;
+          }
+          result.messagesDeleted = this.changes || 0;
+
+          db.run(
+            'DELETE FROM Sessions WHERE session_id = ?',
+            [sessionId],
+            function (err2) {
+              if (err2) {
+                console.error(`Error deleting session ${sessionId}:`, err2);
+                reject(err2);
+                return;
+              }
+              result.sessionsDeleted = this.changes || 0;
+              console.log(
+                `Deleted session ${sessionId}: ${result.messagesDeleted} messages, ${result.sessionsDeleted} session rows`
+              );
+              resolve(result);
+            }
+          );
+        }
+      );
+    });
+  });
+}
+
 // Update author metadata from Notion sync
 async function updateSessionAuthorMetadata(sessionId, metadata) {
   return new Promise((resolve, reject) => {
@@ -750,6 +793,7 @@ module.exports = {
   getSession,
   getAllSessions,
   checkAndFixSessionStatuses,
+  deleteSession,
   updateSessionAuthorMetadata,
   syncAllSessionsWithNotion,
   resetDatabase
