@@ -557,7 +557,10 @@ async function getSessionDetails(sessionId) {
       participants: participants.map(p => p.username),
       message_count: countResult ? countResult.count : 0,
       status: status,
-      author: sessionRecord ? sessionRecord.author : null
+      author: sessionRecord ? sessionRecord.author : null,
+      author_display: sessionRecord ? sessionRecord.author_display : null,
+      author_is_guest: sessionRecord ? sessionRecord.author_is_guest : 0,
+      author_is_host: sessionRecord ? sessionRecord.author_is_host : 0
     };
     
     console.log(`Assembled session details for ${sessionId}:`, JSON.stringify(sessionDetails));

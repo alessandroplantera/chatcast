@@ -50,12 +50,17 @@ function sanitizeSession(session, userMetadata) {
  */
 function enrichSession(session, userMetadata) {
   let authorDisplay = session.author_display || session.author;
+  let authorIsGuest = false;
+  let authorIsHost = false;
 
   if (session.author) {
     const metaForAuthor = userMetadata.get(String(session.author).toLowerCase());
     if (metaForAuthor?.override) {
       authorDisplay = metaForAuthor.override;
     }
+    // Get guest/host status from metadata, not from session object
+    authorIsGuest = Boolean(metaForAuthor?.isGuest);
+    authorIsHost = Boolean(metaForAuthor?.isHost);
   }
 
   const enrichedParticipants = (session.participants || []).map(p => {
@@ -80,8 +85,8 @@ function enrichSession(session, userMetadata) {
     authorDisplay,
     participants: enrichedParticipants.map(p => p.display),
     participantsEnriched: enrichedParticipants,
-    author_is_guest: Boolean(session.author_is_guest),
-    author_is_host: Boolean(session.author_is_host)
+    author_is_guest: authorIsGuest,
+    author_is_host: authorIsHost
   };
 }
 
