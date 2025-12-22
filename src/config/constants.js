@@ -9,7 +9,16 @@ module.exports = {
 
   // Database
   DATABASE_PATH: process.env.DATABASE_PATH || process.env.MESSAGES_DB_PATH || './.data/messages.db',
-  DATABASE_BACKUP_DIR: process.env.DATABASE_BACKUP_DIR || '/app/.data/backups',
+  // Use same directory as database for backups (ensures they're on the same volume)
+  get DATABASE_BACKUP_DIR() {
+    if (process.env.DATABASE_BACKUP_DIR) {
+      return process.env.DATABASE_BACKUP_DIR;
+    }
+    // Extract directory from DATABASE_PATH and add /backups subdirectory
+    const dbPath = this.DATABASE_PATH;
+    const dbDir = require('path').dirname(dbPath);
+    return require('path').join(dbDir, 'backups');
+  },
 
   // Notion
   NOTION_TOKEN: process.env.NOTION_TOKEN || process.env.NOTION_API_KEY,
