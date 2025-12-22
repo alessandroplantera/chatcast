@@ -692,7 +692,7 @@
           // All clickable, guests are violet
           const userClass = isGuest ? 'user-badge user__guest js-guest-name' : 'user-badge js-guest-name';
           return `<span class="${userClass}" data-guest-name="${escapeHTML(g)}">&lt;${guestDisplay}&gt;</span>`;
-        }).join(' ')
+        }).join(' and ')
       : '<span class="user-badge user__guest">&lt;Guest&gt;</span>';
 
     const statusLabel = status === 'active' ? 'Live' : status === 'paused' ? 'Paused' : 'Archived';

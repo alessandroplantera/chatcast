@@ -2,14 +2,18 @@
 
 /**
  * Sanitize a single message - replace real username with display name
+ * and replace @mentions in message content
  */
 function sanitizeMessage(msg, userMetadata) {
   const metadata = userMetadata.get(msg.username?.toLowerCase());
   const displayName = metadata?.override || metadata?.originalName || msg.username;
 
+  // Replace @mentions and usernames in message content
+  const sanitizedText = replaceUsernamesInText(msg.message || '', userMetadata);
+
   return {
     id: msg.id,
-    text: msg.message,
+    text: sanitizedText,
     date: msg.date,
     session_id: msg.session_id,
     username: displayName,
