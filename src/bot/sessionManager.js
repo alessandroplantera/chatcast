@@ -1,14 +1,28 @@
 // src/bot/sessionManager.js - Manages bot recording sessions per-user
 
 const { generateSessionId } = require('../helpers/telegram');
-const CONFIG = require('../config/constants');
 
 /**
  * Session Manager for Telegram bot
  * Manages recording state per user using ctx.session
  *
  * This replaces the global state variables and allows
- * multiple users to record simultaneously without conflicts
+ * multiple users to record simultaneously without conflicts.
+ *
+ * IMPORTANT: Telegraf's `session()` middleware stores state
+ * per chat+user by default. That means each Telegram user
+ * has their own `ctx.session` even inside the same group chat.
+ *
+ * In our app we want ONE logical recording session per chat.
+ * So only the admin who starts the recording has
+ * `recordingHasStarted=true`; for all other users in the same
+ * chat, `isRecording(ctx)` will be false and the bot will reply
+ * "Recording is not active" unless we explicitly share state.
+ *
+ * This explains situations where messages are still stored in
+ * the DB but a second user sees the bot saying that recording
+ * is not active: their own `ctx.session` isn't marked as
+ * recording even though the session in the DB is active.
  */
 
 class BotSessionManager {
@@ -25,6 +39,7 @@ class BotSessionManager {
     ctx.session.sessionId = null;
     ctx.session.author = null;
     ctx.session.awaitingSessionTitle = false;
+    ctx.session.initiatorUserId = null;  // Track who started the recording
   }
 
   /**
@@ -47,6 +62,7 @@ class BotSessionManager {
     ctx.session.awaitingSessionTitle = true;
     ctx.session.sessionId = generateSessionId();
     ctx.session.author = ctx.from.first_name || ctx.from.username || 'Anonymous';
+    ctx.session.initiatorUserId = ctx.from.id;  // Save who initiated the recording
   }
 
   /**
@@ -117,11 +133,13 @@ class BotSessionManager {
   }
 
   /**
-   * Check if awaiting session title
+   * Check if awaiting session title from the correct user
    */
   static isAwaitingTitle(ctx) {
     this.ensureSession(ctx);
-    return ctx.session.awaitingSessionTitle && ctx.session.sessionId;
+    return ctx.session.awaitingSessionTitle &&
+           ctx.session.sessionId &&
+           ctx.session.initiatorUserId === ctx.from.id;  // Only the initiator can provide title
   }
 
   /**
@@ -150,7 +168,8 @@ class BotSessionManager {
       isPaused: ctx.session.isPaused,
       sessionId: ctx.session.sessionId,
       author: ctx.session.author,
-      awaitingSessionTitle: ctx.session.awaitingSessionTitle
+      awaitingSessionTitle: ctx.session.awaitingSessionTitle,
+      initiatorUserId: ctx.session.initiatorUserId
     };
   }
 }

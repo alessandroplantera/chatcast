@@ -29,8 +29,15 @@ function initializeTelegramBot(dependencies) {
   try {
     const bot = new Telegraf(CONFIG.TELEGRAM_BOT_TOKEN);
 
-    // Enable session management
-    bot.use(session());
+    // Enable session management (per-chat, not per-user)
+    // This way, all participants in the same chat share
+    // the same recording state and are recorded together.
+    bot.use(session({
+      getSessionKey: (ctx) => {
+        // Fallback to update_id-based key if chat is missing
+        return ctx.chat?.id ? String(ctx.chat.id) : String(ctx.update.update_id);
+      }
+    }));
 
     // Setup all handlers with dependencies
     const handlerDeps = { db, notionCms, io, emitSessionUpdate, emitSessionNew };
