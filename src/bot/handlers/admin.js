@@ -80,31 +80,50 @@ Welcome ${user.username}! Use the buttons below to manage the database:
   bot.hears('💾 BACKUP DB', async (ctx) => {
     const user = getUserInfo(ctx);
     if (!isAdminUser(user.id)) {
-      ctx.reply('🚫 You are not authorized to perform database operations.');
+      await ctx.reply('🚫 You are not authorized to perform database operations.');
       return;
     }
 
-    ctx.reply('🔄 Starting database backup...');
+    await ctx.reply('🔄 Starting database backup...');
 
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupDir = CONFIG.DATABASE_BACKUP_DIR;
       const dbFile = CONFIG.DATABASE_PATH;
 
+      console.log('[BACKUP] DB path:', dbFile);
+
+      // Access getter and log it
+      let backupDir;
+      try {
+        backupDir = CONFIG.DATABASE_BACKUP_DIR;
+        console.log('[BACKUP] Backup dir resolved:', backupDir);
+      } catch (err) {
+        console.error('[BACKUP] Error accessing DATABASE_BACKUP_DIR:', err);
+        await ctx.reply(`❌ Failed to resolve backup directory: ${err.message}`, keyboards.admin);
+        return;
+      }
+
       if (!fs.existsSync(backupDir)) {
+        console.log('[BACKUP] Creating backup directory:', backupDir);
         fs.mkdirSync(backupDir, { recursive: true });
       }
 
       if (fs.existsSync(dbFile)) {
         const backupPath = path.join(backupDir, `messages.db.${timestamp}.backup`);
+        console.log('[BACKUP] Copying to:', backupPath);
+
         fs.copyFileSync(dbFile, backupPath);
 
-        ctx.reply(`✅ Database backup completed!\n\n📁 Backup file: ${path.basename(backupPath)}`, keyboards.admin);
+        const fileSize = fs.statSync(backupPath).size;
+        console.log('[BACKUP] Backup created, size:', fileSize);
+
+        await ctx.reply(`✅ Database backup completed!\n\n📁 File: ${path.basename(backupPath)}\n📂 Location: ${backupDir}\n💾 Size: ${(fileSize/1024).toFixed(2)} KB`, keyboards.admin);
       } else {
-        ctx.reply('❌ Database file not found. Nothing to backup.', keyboards.admin);
+        await ctx.reply(`❌ Database file not found.\n\n📁 Path: ${dbFile}`, keyboards.admin);
       }
     } catch (error) {
-      ctx.reply(`❌ Backup failed: ${error.message}`, keyboards.admin);
+      console.error('[BACKUP] Error:', error);
+      await ctx.reply(`❌ Backup failed: ${error.message}`, keyboards.admin);
     }
   });
 
