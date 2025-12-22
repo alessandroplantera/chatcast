@@ -1,6 +1,23 @@
 // src/notionCms.js - Notion CMS integration for guest info and upcoming chat banner
 const { Client } = require('@notionhq/client');
 
+// ============================================================================
+// CONFIGURATION & CONSTANTS
+// ============================================================================
+
+const CONFIG = {
+  CACHE_TTL: 15 * 60 * 1000, // 15 minutes
+  MAX_BLOCKS_PER_PAGE: 100,
+  UPCOMING_CHAT_PAGE_NAME: 'upcoming-chat',
+  TITLE_PROPERTIES: ['Name', 'title', 'Title'],
+  MEDIA_PROPERTIES: ['Media', 'Files & media'],
+  USER_STATUS: {
+    GUEST: 'Guest',
+    HOST: 'Host'
+  },
+  PERSON_ROLE: 'person'
+};
+
 // Initialize Notion client
 const notion = new Client({
   auth: process.env.NOTION_TOKEN
@@ -8,22 +25,96 @@ const notion = new Client({
 
 const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 
-// Simple in-memory cache (15 minutes TTL)
-const cache = new Map();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+// ============================================================================
+// CACHE MANAGEMENT
+// ============================================================================
 
-function getCached(key) {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
+class CacheManager {
+  constructor(ttl = CONFIG.CACHE_TTL) {
+    this.cache = new Map();
+    this.ttl = ttl;
   }
-  cache.delete(key);
-  return null;
+
+  get(key) {
+    const entry = this.cache.get(key);
+    if (entry && Date.now() - entry.timestamp < this.ttl) {
+      return entry.data;
+    }
+    this.cache.delete(key);
+    return null;
+  }
+
+  set(key, data) {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  delete(key) {
+    return this.cache.delete(key);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  has(key) {
+    const entry = this.cache.get(key);
+    return entry && Date.now() - entry.timestamp < this.ttl;
+  }
 }
 
-function setCache(key, data) {
-  cache.set(key, { data, timestamp: Date.now() });
+const cacheManager = new CacheManager();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Validates that required input parameters are present
+ */
+function validateInput(value, paramName) {
+  if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+    throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+  }
 }
+
+/**
+ * Sanitize URL to prevent injection attacks
+ */
+function sanitizeUrl(url) {
+  if (!url) return null;
+  const urlStr = String(url).trim();
+
+  // Allow only http(s) and data: URLs
+  if (!urlStr.match(/^(https?:\/\/|data:image\/)/i)) {
+    return null;
+  }
+
+  // Basic XSS prevention: encode dangerous characters
+  return urlStr
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Extract media URL from page with fallback chain
+ */
+function extractMediaUrl(page, properties) {
+  const mediaProperty = properties?.[CONFIG.MEDIA_PROPERTIES[0]];
+  const filesProperty = properties?.[CONFIG.MEDIA_PROPERTIES[1]];
+  const coverUrl = page.cover?.external?.url || page.cover?.file?.url;
+
+  return (
+    (Array.isArray(mediaProperty) ? mediaProperty[0] : null) ||
+    coverUrl ||
+    (Array.isArray(filesProperty) ? filesProperty[0] : null)
+  );
+}
+
+// ============================================================================
+// PAGE RETRIEVAL FUNCTIONS
+// ============================================================================
 
 /**
  * Search for a page by title in the Notion database
@@ -31,25 +122,20 @@ function setCache(key, data) {
  * @returns {Promise<Object|null>} - Page data or null if not found
  */
 async function getPageByTitle(title) {
+  try {
+    validateInput(title, 'title');
+  } catch (error) {
+    console.error('Validation error:', error.message);
+    return null;
+  }
+
   const cacheKey = `page:${title.toLowerCase()}`;
-  const cached = getCached(cacheKey);
+  const cached = cacheManager.get(cacheKey);
   if (cached) return cached;
 
   try {
-    // First check if we have all-pages cached to avoid extra API call
-    let allPagesResults = getCached('all-pages-raw');
-    
-    if (!allPagesResults) {
-      const allPages = await notion.databases.query({
-        database_id: DATABASE_ID
-      });
-      allPagesResults = allPages.results;
-      setCache('all-pages-raw', allPagesResults);
-      console.log(`Notion: Fetched ${allPagesResults.length} pages from database`);
-    } else {
-      console.log(`Notion: Using cached pages list`);
-    }
-    
+    const allPagesResults = await getAllPagesRaw();
+
     const match = allPagesResults.find(page => {
       const pageTitle = getPageTitle(page);
       return pageTitle && pageTitle.toLowerCase() === title.toLowerCase();
@@ -59,10 +145,10 @@ async function getPageByTitle(title) {
       console.log(`Notion: No match found for "${title}"`);
       return null;
     }
-    
+
     console.log(`Notion: Found match for "${title}"`);
     const pageData = await getPageContent(match.id);
-    setCache(cacheKey, pageData);
+    cacheManager.set(cacheKey, pageData);
     return pageData;
   } catch (error) {
     console.error('Notion API error (getPageByTitle):', error.message);
@@ -71,15 +157,40 @@ async function getPageByTitle(title) {
 }
 
 /**
+ * Get all pages raw data (internal helper with caching)
+ */
+async function getAllPagesRaw() {
+  const cached = cacheManager.get('all-pages-raw');
+  if (cached) {
+    console.log('Notion: Using cached pages list');
+    return cached;
+  }
+
+  const allPages = await notion.databases.query({
+    database_id: DATABASE_ID,
+    page_size: CONFIG.MAX_BLOCKS_PER_PAGE
+  });
+
+  const results = allPages.results;
+  cacheManager.set('all-pages-raw', results);
+  console.log(`Notion: Fetched ${results.length} pages from database`);
+
+  return results;
+}
+
+/**
  * Get the title property value from a Notion page
  */
 function getPageTitle(page) {
-  const titleProp = page.properties.Name || page.properties.title || page.properties.Title;
-  if (!titleProp) return null;
-  
-  if (titleProp.title && titleProp.title.length > 0) {
-    return titleProp.title.map(t => t.plain_text).join('');
+  if (!page?.properties) return null;
+
+  for (const propName of CONFIG.TITLE_PROPERTIES) {
+    const titleProp = page.properties[propName];
+    if (titleProp?.title?.length > 0) {
+      return titleProp.title.map(t => t.plain_text).join('');
+    }
   }
+
   return null;
 }
 
@@ -89,17 +200,23 @@ function getPageTitle(page) {
  */
 async function getPageContent(pageId) {
   try {
-    // Get page properties
-    const page = await notion.pages.retrieve({ page_id: pageId });
-    
-    // Get page blocks (content)
-    const blocks = await notion.blocks.children.list({
-      block_id: pageId,
-      page_size: 100
-    });
+    validateInput(pageId, 'pageId');
+  } catch (error) {
+    console.error('Validation error:', error.message);
+    return null;
+  }
+
+  try {
+    const [page, blocks] = await Promise.all([
+      notion.pages.retrieve({ page_id: pageId }),
+      notion.blocks.children.list({
+        block_id: pageId,
+        page_size: CONFIG.MAX_BLOCKS_PER_PAGE
+      })
+    ]);
 
     const props = extractProperties(page.properties);
-    
+
     return {
       id: pageId,
       title: getPageTitle(page),
@@ -107,8 +224,7 @@ async function getPageContent(pageId) {
       content: blocksToHtml(blocks.results),
       cover: page.cover?.external?.url || page.cover?.file?.url || null,
       icon: page.icon?.emoji || page.icon?.external?.url || null,
-      // Media: first image from "Media" property, or cover, or first file
-      media: props.Media?.[0] || page.cover?.external?.url || page.cover?.file?.url || props['Files & media']?.[0] || null,
+      media: extractMediaUrl(page, props),
       lastEdited: page.last_edited_time
     };
   } catch (error) {
@@ -167,56 +283,132 @@ function extractProperties(properties) {
   return result;
 }
 
+// ============================================================================
+// HTML CONVERSION FUNCTIONS
+// ============================================================================
+
+/**
+ * Convert a single Notion block to HTML
+ */
+function blockToHtmlElement(block) {
+  const type = block.type;
+  const content = block[type];
+
+  switch (type) {
+    case 'paragraph': {
+      const pText = richTextToHtml(content.rich_text);
+      return pText ? { type: 'paragraph', html: `<p>${pText}</p>` } : null;
+    }
+
+    case 'heading_1':
+      return { type: 'heading', html: `<h1>${richTextToHtml(content.rich_text)}</h1>` };
+
+    case 'heading_2':
+      return { type: 'heading', html: `<h2>${richTextToHtml(content.rich_text)}</h2>` };
+
+    case 'heading_3':
+      return { type: 'heading', html: `<h3>${richTextToHtml(content.rich_text)}</h3>` };
+
+    case 'bulleted_list_item':
+      return { type: 'bulleted_list', html: `<li>${richTextToHtml(content.rich_text)}</li>` };
+
+    case 'numbered_list_item':
+      return { type: 'numbered_list', html: `<li>${richTextToHtml(content.rich_text)}</li>` };
+
+    case 'quote':
+      return { type: 'quote', html: `<blockquote>${richTextToHtml(content.rich_text)}</blockquote>` };
+
+    case 'code': {
+      const language = content.language || 'text';
+      const code = richTextToHtml(content.rich_text);
+      return { type: 'code', html: `<pre><code class="language-${language}">${code}</code></pre>` };
+    }
+
+    case 'divider':
+      return { type: 'divider', html: '<hr />' };
+
+    case 'image': {
+      const imgUrl = sanitizeUrl(content.external?.url || content.file?.url);
+      if (!imgUrl) return null;
+
+      const caption = content.caption?.length > 0 ? richTextToHtml(content.caption) : '';
+      const altText = caption || 'Image';
+      const captionHtml = caption ? `<figcaption>${caption}</figcaption>` : '';
+
+      return { type: 'image', html: `<figure><img src="${imgUrl}" alt="${altText}" />${captionHtml}</figure>` };
+    }
+
+    case 'callout': {
+      const icon = content.icon?.emoji || '';
+      const iconHtml = icon ? `<span class="callout-icon">${icon}</span>` : '';
+      const text = richTextToHtml(content.rich_text);
+
+      return { type: 'callout', html: `<aside class="callout">${iconHtml}<div>${text}</div></aside>` };
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Group consecutive list items and wrap them in ul/ol tags
+ */
+function groupListItems(elements) {
+  const result = [];
+  let currentList = null;
+  let currentListType = null;
+
+  for (const element of elements) {
+    if (element.type === 'bulleted_list' || element.type === 'numbered_list') {
+      if (element.type !== currentListType) {
+        // Close previous list if switching types
+        if (currentList) {
+          const tag = currentListType === 'bulleted_list' ? 'ul' : 'ol';
+          result.push(`<${tag}>\n${currentList.join('\n')}\n</${tag}>`);
+        }
+        // Start new list
+        currentList = [element.html];
+        currentListType = element.type;
+      } else {
+        // Continue current list
+        currentList.push(element.html);
+      }
+    } else {
+      // Close any open list
+      if (currentList) {
+        const tag = currentListType === 'bulleted_list' ? 'ul' : 'ol';
+        result.push(`<${tag}>\n${currentList.join('\n')}\n</${tag}>`);
+        currentList = null;
+        currentListType = null;
+      }
+      // Add non-list element
+      result.push(element.html);
+    }
+  }
+
+  // Close any remaining open list
+  if (currentList) {
+    const tag = currentListType === 'bulleted_list' ? 'ul' : 'ol';
+    result.push(`<${tag}>\n${currentList.join('\n')}\n</${tag}>`);
+  }
+
+  return result;
+}
+
 /**
  * Convert Notion blocks to HTML
  */
 function blocksToHtml(blocks) {
-  return blocks.map(block => {
-    const type = block.type;
-    const content = block[type];
-    
-    switch (type) {
-      case 'paragraph':
-        const pText = richTextToHtml(content.rich_text);
-        return pText ? `<p>${pText}</p>` : '';
-        
-      case 'heading_1':
-        return `<h1>${richTextToHtml(content.rich_text)}</h1>`;
-        
-      case 'heading_2':
-        return `<h2>${richTextToHtml(content.rich_text)}</h2>`;
-        
-      case 'heading_3':
-        return `<h3>${richTextToHtml(content.rich_text)}</h3>`;
-        
-      case 'bulleted_list_item':
-        return `<li>${richTextToHtml(content.rich_text)}</li>`;
-        
-      case 'numbered_list_item':
-        return `<li>${richTextToHtml(content.rich_text)}</li>`;
-        
-      case 'quote':
-        return `<blockquote>${richTextToHtml(content.rich_text)}</blockquote>`;
-        
-      case 'code':
-        return `<pre><code class="language-${content.language || 'text'}">${richTextToHtml(content.rich_text)}</code></pre>`;
-        
-      case 'divider':
-        return '<hr />';
-        
-      case 'image':
-        const imgUrl = content.external?.url || content.file?.url;
-        const caption = content.caption?.length > 0 ? richTextToHtml(content.caption) : '';
-        return imgUrl ? `<figure><img src="${imgUrl}" alt="${caption}" />${caption ? `<figcaption>${caption}</figcaption>` : ''}</figure>` : '';
-        
-      case 'callout':
-        const icon = content.icon?.emoji || '';
-        return `<aside class="callout">${icon ? `<span class="callout-icon">${icon}</span>` : ''}<div>${richTextToHtml(content.rich_text)}</div></aside>`;
-        
-      default:
-        return '';
-    }
-  }).filter(Boolean).join('\n');
+  if (!Array.isArray(blocks) || blocks.length === 0) return '';
+
+  const elements = blocks
+    .map(blockToHtmlElement)
+    .filter(Boolean);
+
+  const grouped = groupListItems(elements);
+
+  return grouped.join('\n');
 }
 
 /**
@@ -256,19 +448,22 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
+// ============================================================================
+// HIGH-LEVEL API FUNCTIONS
+// ============================================================================
+
 /**
  * Get upcoming chat info (page titled "upcoming-chat" or similar)
  */
 async function getUpcomingChat() {
   const cacheKey = 'upcoming-chat';
-  const cached = getCached(cacheKey);
+  const cached = cacheManager.get(cacheKey);
   if (cached) return cached;
 
   try {
-    // Search for upcoming chat page
-    const page = await getPageByTitle('upcoming-chat');
+    const page = await getPageByTitle(CONFIG.UPCOMING_CHAT_PAGE_NAME);
     if (page) {
-      setCache(cacheKey, page);
+      cacheManager.set(cacheKey, page);
       return page;
     }
     return null;
@@ -283,27 +478,30 @@ async function getUpcomingChat() {
  */
 async function getAllPages() {
   const cacheKey = 'all-pages';
-  const cached = getCached(cacheKey);
+  const cached = cacheManager.get(cacheKey);
   if (cached) return cached;
 
   try {
     console.log('Notion: Querying database (paginated):', DATABASE_ID);
     let allResults = [];
     let cursor = undefined;
+
     do {
       const response = await notion.databases.query({
         database_id: DATABASE_ID,
-        page_size: 100,
+        page_size: CONFIG.MAX_BLOCKS_PER_PAGE,
         start_cursor: cursor
       });
-      if (response && Array.isArray(response.results)) {
+
+      if (response?.results && Array.isArray(response.results)) {
         allResults = allResults.concat(response.results);
       }
+
       cursor = response.has_more ? response.next_cursor : undefined;
     } while (cursor);
 
-    // Cache raw results for getPageByTitle
-    setCache('all-pages-raw', allResults);
+    // Cache raw results for reuse in getPageByTitle
+    cacheManager.set('all-pages-raw', allResults);
     console.log('Notion: Raw response results count:', allResults.length);
 
     const pages = allResults.map(page => ({
@@ -314,7 +512,7 @@ async function getAllPages() {
       icon: page.icon?.emoji || page.icon?.external?.url || null
     }));
 
-    setCache(cacheKey, pages);
+    cacheManager.set(cacheKey, pages);
     return pages;
   } catch (error) {
     console.error('Notion API error (getAllPages):', error.message, error);
@@ -328,29 +526,29 @@ async function getAllPages() {
  */
 async function getAllPagesWithContent() {
   const cacheKey = 'all-pages-full';
-  const cached = getCached(cacheKey);
+  const cached = cacheManager.get(cacheKey);
   if (cached) return cached;
 
   try {
     console.log('Notion: Fetching all pages with full content...');
     const basicPages = await getAllPages();
-    
+
     // Fetch full content for each page (excluding upcoming-chat)
     const fullPages = await Promise.all(
       basicPages
-        .filter(p => p.title && p.title.toLowerCase() !== 'upcoming-chat')
+        .filter(p => p.title && p.title.toLowerCase() !== CONFIG.UPCOMING_CHAT_PAGE_NAME)
         .map(async (page) => {
           const fullData = await getPageContent(page.id);
-          // Also cache individually
-          if (fullData && fullData.title) {
-            setCache(`page:${fullData.title.toLowerCase()}`, fullData);
+          // Also cache individually for faster subsequent access
+          if (fullData?.title) {
+            cacheManager.set(`page:${fullData.title.toLowerCase()}`, fullData);
           }
           return fullData;
         })
     );
-    
+
     const validPages = fullPages.filter(Boolean);
-    setCache(cacheKey, validPages);
+    cacheManager.set(cacheKey, validPages);
     console.log(`Notion: Preloaded ${validPages.length} pages with full content`);
     return validPages;
   } catch (error) {
@@ -370,7 +568,9 @@ async function getUserMetadata() {
 
     for (const page of pages) {
       const name = page.title;
-      if (!name || name.toLowerCase() === 'upcoming-chat') continue;
+      if (!name || name.toLowerCase() === CONFIG.UPCOMING_CHAT_PAGE_NAME) {
+        continue;
+      }
 
       const props = page.properties || {};
       const status = props.Status; // Array: ['Guest'] or ['Host'] or []
@@ -379,9 +579,9 @@ async function getUserMetadata() {
 
       // Heuristic: only treat a page as a "user/person" if it has an explicit Status
       // containing Guest/Host, or if it has a Role/Type explicitly set to 'Person'.
-      const isGuest = status && Array.isArray(status) && status.includes('Guest');
-      const isHost = status && Array.isArray(status) && status.includes('Host');
-      const isPersonRole = role && String(role).toLowerCase() === 'person';
+      const isGuest = Array.isArray(status) && status.includes(CONFIG.USER_STATUS.GUEST);
+      const isHost = Array.isArray(status) && status.includes(CONFIG.USER_STATUS.HOST);
+      const isPersonRole = role && String(role).toLowerCase() === CONFIG.PERSON_ROLE;
 
       if (!isGuest && !isHost && !isPersonRole) {
         // Skip pages that do not look like people to avoid accidental replacements
@@ -390,11 +590,11 @@ async function getUserMetadata() {
 
       userMap.set(name.toLowerCase(), {
         originalName: name,
-        status: status && status.length > 0 ? status : [],
+        status: Array.isArray(status) && status.length > 0 ? status : [],
         override: override || null,
         isGuest: Boolean(isGuest),
         isHost: Boolean(isHost),
-        type: isPersonRole ? 'person' : null
+        type: isPersonRole ? CONFIG.PERSON_ROLE : null
       });
     }
 
@@ -407,9 +607,14 @@ async function getUserMetadata() {
 
 /**
  * Clear the cache (useful for forcing refresh)
+ * @param {string} [key] - Optional specific cache key to clear. If not provided, clears all cache.
  */
-function clearCache() {
-  cache.clear();
+function clearCache(key) {
+  if (key) {
+    return cacheManager.delete(key);
+  }
+  cacheManager.clear();
+  return true;
 }
 
 module.exports = {
