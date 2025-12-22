@@ -5,8 +5,7 @@
 					{{! Author with override: use authorDisplay for display, author for data-guest-name }}
 					{{#if this.authorDisplay}}{{> components/atoms/user-badge name=this.authorDisplay original=this.author guest=this.author_is_guest }}{{else}}{{#if this.author}}{{> components/atoms/user-badge name=this.author guest=this.author_is_guest }}{{else}}{{> components/atoms/user-badge name="Host" }}{{/if}}{{/if}} and {{#if this.participantsEnriched.length}}{{#each
 					this.participantsEnriched}}{{#if (ne this.original
-					../author)}}{{> components/atoms/user-badge name=this.display original=this.original guest=this.isGuest }}{{#unless @last}}
-					{{/unless}}{{/if}}{{/each}}{{else}}
+					../author)}}{{> components/atoms/user-badge name=this.display original=this.original guest=this.isGuest }}{{#unless @last}} and {{/unless}}{{/if}}{{/each}}{{else}}
 					{{> components/atoms/user-badge name="Guest" guest=true }}{{/if}} talking about {{#if
 					this.title}}{{this.title}}{{else}}Conversation
 					{{this.session_id}}{{/if}}
