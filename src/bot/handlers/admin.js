@@ -10,7 +10,7 @@ const path = require('path');
 /**
  * Setup admin panel handlers
  */
-function setupAdminHandlers(bot, { db }) {
+function setupAdminHandlers(bot, { db, syncNotion, notionCms }) {
 
   // Admin panel access
   bot.hears('🔧 ADMIN PANEL', async (ctx) => {
@@ -30,6 +30,7 @@ Welcome ${user.username}! Use the buttons below to manage the database:
 💾 BACKUP DB - Create database backup
 🗑️ RESET DB - Clear all data (with confirmation)
 🧾 LIST SESSIONS - Show recent sessions with titles
+🔄 SYNC NOTION - Force refresh Notion content
 ❓ ADMIN HELP - Show admin commands
 ⬅️ BACK TO MAIN - Return to main menu`,
       keyboards.admin
@@ -413,6 +414,35 @@ This action CANNOT be undone!`,
     } catch (err) {
       console.error('Error downloading backup from bot command:', err);
       await ctx.reply(`❌ Failed to download backup: ${err.message}`);
+    }
+  });
+
+  // Notion sync - clears cache and re-syncs DB with fresh Notion data
+  bot.hears('🔄 SYNC NOTION', async (ctx) => {
+    const user = getUserInfo(ctx);
+    if (!isAdminUser(user.id)) {
+      ctx.reply('🚫 You are not authorized to sync Notion.');
+      return;
+    }
+
+    await ctx.reply('🔄 Syncing Notion content...');
+
+    try {
+      const result = await syncNotion();
+
+      if (!result.success && result.error === 'no_metadata') {
+        await ctx.reply('⚠️ Sync completed but no user pages found in Notion.\n\nMake sure pages have Status (Guest/Host) set.', keyboards.admin);
+        return;
+      }
+
+      const duration = result.duration ? ` (${result.duration}ms)` : '';
+      await ctx.reply(
+        `✅ Notion sync complete${duration}\n\n• Sessions updated: ${result.updated ?? 0}\n• Cache cleared: yes`,
+        keyboards.admin
+      );
+    } catch (err) {
+      console.error('[Bot] Notion sync error:', err);
+      await ctx.reply(`❌ Sync failed: ${err.message}`, keyboards.admin);
     }
   });
 

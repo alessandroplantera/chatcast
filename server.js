@@ -369,7 +369,8 @@ const start = async () => {
       notionCms,
       io,
       emitSessionUpdate,
-      emitSessionNew
+      emitSessionNew,
+      syncNotion
     });
 
     // Periodic session check

@@ -13,7 +13,7 @@ const { setupMessageHandler } = require('./handlers/messages');
  * @returns {Telegraf|null} - Configured bot instance or null if disabled
  */
 function initializeTelegramBot(dependencies) {
-  const { db, notionCms, io, emitSessionUpdate, emitSessionNew } = dependencies;
+  const { db, notionCms, io, emitSessionUpdate, emitSessionNew, syncNotion } = dependencies;
 
   if (!CONFIG.TELEGRAM_BOT_TOKEN || CONFIG.TELEGRAM_DISABLED) {
     console.log('🔧 Telegram bot disabled - no token provided or explicitly disabled');
@@ -40,7 +40,7 @@ function initializeTelegramBot(dependencies) {
     }));
 
     // Setup all handlers with dependencies
-    const handlerDeps = { db, notionCms, io, emitSessionUpdate, emitSessionNew };
+    const handlerDeps = { db, notionCms, io, emitSessionUpdate, emitSessionNew, syncNotion };
 
     setupRecordingHandlers(bot, handlerDeps);
     setupAdminHandlers(bot, handlerDeps);

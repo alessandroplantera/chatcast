@@ -37,6 +37,7 @@ const keyboards = {
       Markup.button.text('🗑️ RESET DB'),
       Markup.button.text('🧾 LIST SESSIONS'),
     ],
+    [Markup.button.text('🔄 SYNC NOTION')],
     [
       Markup.button.text('❓ ADMIN HELP'),
       Markup.button.text('⬅️ BACK TO MAIN'),
@@ -63,6 +64,7 @@ const BUTTON_MESSAGES = [
   '💾 BACKUP DB',
   '🗑️ RESET DB',
   '🧾 LIST SESSIONS',
+  '🔄 SYNC NOTION',
   '❓ ADMIN HELP',
   '⬅️ BACK TO MAIN'
 ];
