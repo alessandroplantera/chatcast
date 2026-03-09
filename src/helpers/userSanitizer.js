@@ -146,6 +146,7 @@ function sanitizeNotionPage(pageData) {
       Description: props.Description || '',
       Override: overrideValue || null
     },
+    descriptionHtml: pageData.descriptionHtml || '',
     content: pageData.content || '',
     cover: pageData.cover || null,
     icon: pageData.icon || null,

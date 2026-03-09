@@ -216,11 +216,14 @@ async function getPageContent(pageId) {
     ]);
 
     const props = extractProperties(page.properties);
+    const rawDescRichText = page.properties?.Description?.rich_text || [];
+    const descriptionHtml = richTextToHtml(rawDescRichText);
 
     return {
       id: pageId,
       title: getPageTitle(page),
       properties: props,
+      descriptionHtml,
       content: blocksToHtml(blocks.results),
       cover: page.cover?.external?.url || page.cover?.file?.url || null,
       icon: page.icon?.emoji || page.icon?.external?.url || null,

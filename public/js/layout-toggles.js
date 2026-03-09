@@ -571,8 +571,11 @@
 
       let html = '';
 
-      // Add description
-      if (description) {
+      // Add description (prefer HTML-formatted version from Notion rich text)
+      const descriptionHtml = data.descriptionHtml;
+      if (descriptionHtml) {
+        html += `<p>${descriptionHtml}</p>`;
+      } else if (description) {
         html += `<p>${escapeHTML(description)}</p>`;
       }
 
