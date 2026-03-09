@@ -418,8 +418,8 @@ function richTextToHtml(richText) {
   if (!richText || richText.length === 0) return '';
   
   return richText.map(item => {
-    let text = escapeHtml(item.plain_text);
-    
+    let text = escapeHtml(item.plain_text).replace(/\n/g, '<br>');
+
     // Apply annotations
     if (item.annotations.bold) text = `<strong>${text}</strong>`;
     if (item.annotations.italic) text = `<em>${text}</em>`;
