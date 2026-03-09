@@ -57,15 +57,6 @@ function initializeTelegramBot(dependencies) {
         return null;
       });
 
-    // Graceful stop handlers
-    const stopBot = (signal) => {
-      console.log(`Stopping Telegram bot (${signal})...`);
-      bot.stop(signal);
-    };
-
-    process.once('SIGINT', () => stopBot('SIGINT'));
-    process.once('SIGTERM', () => stopBot('SIGTERM'));
-
     return bot;
   } catch (error) {
     console.error('❌ Failed to initialize Telegram bot:', error.message);

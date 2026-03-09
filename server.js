@@ -387,12 +387,17 @@ const start = async () => {
     }, CONFIG.TIMEOUTS.SESSION_CHECK_INTERVAL);
 
     // Graceful shutdown
-    const shutdown = (signal) => {
+    const shutdown = async (signal) => {
       console.log(`Received ${signal}, stopping server...`);
       clearInterval(sessionCheckInterval);
       if (notionSyncIntervalId) clearInterval(notionSyncIntervalId);
-      fastify.close();
       if (bot) bot.stop(signal);
+      try {
+        await fastify.close();
+      } catch (err) {
+        console.error('Error closing server:', err.message);
+      }
+      process.exit(0);
     };
 
     process.once('SIGINT', () => shutdown('SIGINT'));
