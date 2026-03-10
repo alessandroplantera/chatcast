@@ -61,7 +61,7 @@ class BotSessionManager {
     ctx.session.isPaused = false;
     ctx.session.awaitingSessionTitle = true;
     ctx.session.sessionId = generateSessionId();
-    ctx.session.author = ctx.from.first_name || ctx.from.username || 'Anonymous';
+    ctx.session.author = ctx.from.username || ctx.from.first_name || 'Anonymous';
     ctx.session.initiatorUserId = ctx.from.id;  // Save who initiated the recording
   }
 

@@ -194,10 +194,7 @@ async function registerSessionRoutes(fastify, { db }) {
           const result = await db.forceUpdateSessionStatus(session.session_id, CONFIG.SESSION_STATUS.COMPLETED);
           if (result) updatedCount++;
         } else if (session.status === CONFIG.SESSION_STATUS.ACTIVE) {
-          const lastMsg = await db.get(
-            'SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1',
-            [session.session_id]
-          );
+          const lastMsg = await db.getLastMessageDate(session.session_id);
 
           const lastMsgTime = lastMsg ? new Date(lastMsg.date).getTime() : 0;
           const creationTime = new Date(session.created_at).getTime();

@@ -620,6 +620,39 @@ async function checkAndFixSessionStatuses() {
   });
 }
 
+// Force-update a session's status (bypasses normal state machine)
+async function forceUpdateSessionStatus(sessionId, status) {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error('Database not initialized'));
+    db.run(
+      'UPDATE Sessions SET status = ? WHERE session_id = ?',
+      [status, sessionId],
+      function(err) {
+        if (err) {
+          console.error(`Error force-updating status for session ${sessionId}:`, err);
+          return reject(err);
+        }
+        resolve(this.changes > 0);
+      }
+    );
+  });
+}
+
+// Get last message date for a session (used by fix-all-sessions)
+async function getLastMessageDate(sessionId) {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error('Database not initialized'));
+    db.get(
+      'SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1',
+      [sessionId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      }
+    );
+  });
+}
+
 // Delete a single session and all its messages
 async function deleteSession(sessionId) {
   return new Promise((resolve, reject) => {
@@ -799,5 +832,7 @@ module.exports = {
   deleteSession,
   updateSessionAuthorMetadata,
   syncAllSessionsWithNotion,
-  resetDatabase
+  resetDatabase,
+  forceUpdateSessionStatus,
+  getLastMessageDate
 };
