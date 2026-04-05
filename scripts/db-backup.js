@@ -3,12 +3,17 @@ const fs = require('fs');
 const path = require('path');
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const backupDir = './backups';
+const backupDir = process.env.DATABASE_BACKUP_DIR || '/app/.data/backups';
 
-// Ensure backup directory exists
+// Ensure backup directory exists (create if missing)
 if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
-  console.log('✓ Created backups directory');
+  try {
+    fs.mkdirSync(backupDir, { recursive: true });
+    console.log(`✓ Created backups directory at ${backupDir}`);
+  } catch (err) {
+    console.error(`❌ Failed to create backup directory ${backupDir}:`, err.message);
+    process.exit(1);
+  }
 }
 
 // Your current database file (from your existing messagesDb.js)

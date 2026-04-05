@@ -2,37 +2,12 @@
 
 @use 'sass:map';
 @use '../abstracts/variables' as *;
-@use '../abstracts/mixins' as mixins;
 
 body {
   font-family: $font-family-primary;
-  font-size: font-size(base);
-  font-weight: font-weight(normal);
-  line-height: map.get($line-heights, normal);
-  color: color(text-primary);
+  font-size: 16px;
+  font-weight: var(--font-weight-regular);
+  color: var(--text-body-medium);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  margin: 0;
-  font-weight: font-weight(semibold);
-  line-height: map.get($line-heights, tight);
-  color: color(text-primary);
-}
-
-h1 { @include mixins.fluid-type(3xl, 5xl); }
-h2 { @include mixins.fluid-type(2xl, 4xl); }
-h3 { @include mixins.fluid-type(xl, 3xl); }
-h4 { @include mixins.fluid-type(lg, 2xl); }
-h5 { @include mixins.fluid-type(sm, xl); }
-h6 { @include mixins.fluid-type(base, lg); }
-
-p {
-  margin: 0;
-  line-height: map.get($line-heights, relaxed);
-}
-
-strong, b {
-  font-weight: font-weight(semibold);
 }

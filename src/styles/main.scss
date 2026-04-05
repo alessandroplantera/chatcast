@@ -3,22 +3,18 @@
 // ALL @use rules must come at the very beginning
 @use 'abstracts/variables' as *;
 @use 'abstracts/mixins' as *;
+@use 'components/atoms';
 @use 'base/reset';
 @use 'base/typography';
 @use 'base/base';
 @use 'layout/header';
 @use 'layout/about';
-@use 'layout/main';
-@use 'components/conversation-display';
-@use 'components/conversation-list';
-@use 'components/status-indicator';
-@use 'components/conversation-detail';
-@use 'components/message-thread';
-@use 'components/navigation-fab';
+@use 'layout/layout';
 @use 'base/utilities';
+@use 'components/molecules';
+@use 'components/organisms';
+@use 'layout/main-wrapper';
 
-// Import Google Fonts after all @use rules
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Krona+One&display=swap');
 
 // Utilities - Helper classes
 .scroll-hidden {
@@ -30,7 +26,7 @@
     height: 0;
   }
 }
-
-// Responsive: split-panel via mixin
-@include split-panel-responsive(md);
-@include split-panel-responsive(sm);
+button {
+  border: none;
+  padding: 0;
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://staging-chatcast-production.up.railway.app/</loc>
+    <lastmod>2025-12-22T19:44:41.094Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://staging-chatcast-production.up.railway.app/?session_id=session_1766432338410_51</loc>
+    <lastmod>2025-12-22T19:39:04.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://staging-chatcast-production.up.railway.app/?session_id=session_1766432224920_573</loc>
+    <lastmod>2025-12-22T19:37:21.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://staging-chatcast-production.up.railway.app/?session_id=session_1766431831478_127</loc>
+    <lastmod>2025-12-22T19:30:39.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://staging-chatcast-production.up.railway.app/?session_id=session_1766430829152_450</loc>
+    <lastmod>2025-12-22T19:13:52.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>

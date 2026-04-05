@@ -1,0 +1,177 @@
+// src/bot/sessionManager.js - Manages bot recording sessions per-user
+
+const { generateSessionId } = require('../helpers/telegram');
+
+/**
+ * Session Manager for Telegram bot
+ * Manages recording state per user using ctx.session
+ *
+ * This replaces the global state variables and allows
+ * multiple users to record simultaneously without conflicts.
+ *
+ * IMPORTANT: Telegraf's `session()` middleware stores state
+ * per chat+user by default. That means each Telegram user
+ * has their own `ctx.session` even inside the same group chat.
+ *
+ * In our app we want ONE logical recording session per chat.
+ * So only the admin who starts the recording has
+ * `recordingHasStarted=true`; for all other users in the same
+ * chat, `isRecording(ctx)` will be false and the bot will reply
+ * "Recording is not active" unless we explicitly share state.
+ *
+ * This explains situations where messages are still stored in
+ * the DB but a second user sees the bot saying that recording
+ * is not active: their own `ctx.session` isn't marked as
+ * recording even though the session in the DB is active.
+ */
+
+class BotSessionManager {
+  /**
+   * Initialize a new session for the user
+   */
+  static initializeSession(ctx) {
+    if (!ctx.session) {
+      ctx.session = {};
+    }
+
+    ctx.session.recordingHasStarted = false;
+    ctx.session.isPaused = false;
+    ctx.session.sessionId = null;
+    ctx.session.author = null;
+    ctx.session.awaitingSessionTitle = false;
+    ctx.session.initiatorUserId = null;  // Track who started the recording
+  }
+
+  /**
+   * Ensure session exists, create if not
+   */
+  static ensureSession(ctx) {
+    if (!ctx.session || typeof ctx.session !== 'object') {
+      this.initializeSession(ctx);
+    }
+  }
+
+  /**
+   * Start waiting for a session title
+   */
+  static startRecording(ctx) {
+    this.ensureSession(ctx);
+
+    ctx.session.recordingHasStarted = false;
+    ctx.session.isPaused = false;
+    ctx.session.awaitingSessionTitle = true;
+    ctx.session.sessionId = generateSessionId();
+    ctx.session.author = ctx.from.username || ctx.from.first_name || 'Anonymous';
+    ctx.session.initiatorUserId = ctx.from.id;  // Save who initiated the recording
+  }
+
+  /**
+   * Finalize session start after title is provided
+   */
+  static finalizeStart(ctx) {
+    this.ensureSession(ctx);
+
+    ctx.session.awaitingSessionTitle = false;
+    ctx.session.recordingHasStarted = true;
+    ctx.session.isPaused = false;
+  }
+
+  /**
+   * Pause the current recording
+   */
+  static pauseRecording(ctx) {
+    this.ensureSession(ctx);
+
+    if (ctx.session.recordingHasStarted && !ctx.session.isPaused) {
+      ctx.session.isPaused = true;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resume a paused recording
+   */
+  static resumeRecording(ctx) {
+    this.ensureSession(ctx);
+
+    if (ctx.session.recordingHasStarted && ctx.session.isPaused) {
+      ctx.session.isPaused = false;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Stop the current recording
+   */
+  static stopRecording(ctx) {
+    this.ensureSession(ctx);
+
+    const wasRecording = ctx.session.recordingHasStarted;
+    const sessionId = ctx.session.sessionId;
+
+    this.initializeSession(ctx);
+
+    return { wasRecording, sessionId };
+  }
+
+  /**
+   * Check if currently recording
+   */
+  static isRecording(ctx) {
+    this.ensureSession(ctx);
+    return ctx.session.recordingHasStarted && !ctx.session.isPaused;
+  }
+
+  /**
+   * Check if recording is paused
+   */
+  static isPaused(ctx) {
+    this.ensureSession(ctx);
+    return ctx.session.recordingHasStarted && ctx.session.isPaused;
+  }
+
+  /**
+   * Check if awaiting session title from the correct user
+   */
+  static isAwaitingTitle(ctx) {
+    this.ensureSession(ctx);
+    return ctx.session.awaitingSessionTitle &&
+           ctx.session.sessionId &&
+           ctx.session.initiatorUserId === ctx.from.id;  // Only the initiator can provide title
+  }
+
+  /**
+   * Get current session ID
+   */
+  static getSessionId(ctx) {
+    this.ensureSession(ctx);
+    return ctx.session.sessionId;
+  }
+
+  /**
+   * Get session author
+   */
+  static getAuthor(ctx) {
+    this.ensureSession(ctx);
+    return ctx.session.author;
+  }
+
+  /**
+   * Get full session state (for debugging)
+   */
+  static getState(ctx) {
+    this.ensureSession(ctx);
+    return {
+      recordingHasStarted: ctx.session.recordingHasStarted,
+      isPaused: ctx.session.isPaused,
+      sessionId: ctx.session.sessionId,
+      author: ctx.session.author,
+      awaitingSessionTitle: ctx.session.awaitingSessionTitle,
+      initiatorUserId: ctx.session.initiatorUserId
+    };
+  }
+}
+
+module.exports = BotSessionManager;

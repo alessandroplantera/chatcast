@@ -94,7 +94,7 @@ const db = new sqlite3.Database(dbFile, sqlite3.OPEN_READONLY, (err) => {
 });
 
 function checkBackups() {
-  const backupDir = './backups';
+  const backupDir = process.env.DATABASE_BACKUP_DIR || '/app/.data/backups';
   if (fs.existsSync(backupDir)) {
     const backups = fs.readdirSync(backupDir).filter(f => f.endsWith('.backup'));
     console.log(`💾 Backups available: ${backups.length}`);
@@ -108,7 +108,7 @@ function checkBackups() {
       console.log(`   Date: ${backupStats.mtime.toLocaleString()}`);
     }
   } else {
-    console.log(`💾 Backups: No backup directory found`);
+    console.log(`💾 Backups: No backup directory found at ${backupDir}`);
   }
   
   console.log('');

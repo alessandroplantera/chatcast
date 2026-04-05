@@ -1,0 +1,15 @@
+Behaviours
+	
+
+Suggestions
+	Caricare foto di basse dimensioni/webp (https://convertio.co/it/jpeg-webp/)
+
+
+Review
+(x)	about scompare quando aperto guest e torna etichetta
+	Quali sono le regole secondo cui viene definito il colore dell'utente? (X)
+
+Todo
+(x)	About section deve prendere meno spazio in larghezza
+	aggiungi noOne se non c'è nessuno nella chat
+	

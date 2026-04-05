@@ -1,0 +1,31 @@
+{{#if about}}
+<article class="about">
+	<figure class="about__image">
+		{{#if about.media}}
+			<img src="{{about.media}}" alt="{{about.title}}" />
+		{{else if about.cover}}
+			<img src="{{about.cover}}" alt="{{about.title}}" />
+		{{else}}
+			<span style="background:#ffffff; display:block; width:100%; height:80dvh;" />
+		{{/if}}
+	</figure>
+
+	<div class="about__content">
+		{{#if about.content}}
+			{{{about.content}}}
+		{{else}}
+			<p class="about__text">This platform is under construction</p>
+			<p class="about__credits">An idea of @obot – @sere_cangi</p>
+		{{/if}}
+	</div>
+</article>
+{{else}}
+<article class="about">
+	<figure class="about__image">
+		<span style="background:#ffffff; display:block; width:100%; height:80dvh;" />
+	</figure>
+	<p class="about__text">This platform is under construction</p>
+	<p class="about__credits">An idea of @obot – @sere_cangi</p>	
+</article>
+
+{{/if}}

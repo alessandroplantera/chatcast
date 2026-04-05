@@ -15,7 +15,9 @@ html {
 body {
   margin: 0;
   height: 100%;
-  overflow: hidden; // Prevent scrolling for the full-screen layout
+  overflow:hidden;
+  position: relative; // iOS needs this for nested scroll containers
+  -webkit-tap-highlight-color: transparent; // Remove iOS tap highlight
 }
 
 main {

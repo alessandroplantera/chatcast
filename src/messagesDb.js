@@ -2,7 +2,17 @@ const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
 
-const dbFile = "./.data/messages.db";
+const dbFile = process.env.DATABASE_PATH || process.env.MESSAGES_DB_PATH || './.data/messages.db';
+// Ensure the database directory exists so sqlite can create the file
+const dbDir = path.dirname(dbFile);
+if (!fs.existsSync(dbDir)) {
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`✓ Created database directory: ${dbDir}`);
+  } catch (err) {
+    console.error(`❌ Failed to create database directory ${dbDir}:`, err.message);
+  }
+}
 const exists = require("fs").existsSync(dbFile);
 
 let db; // To store the database connection
@@ -94,7 +104,8 @@ async function initializeDb() {
                   session_id TEXT PRIMARY KEY,
                   title TEXT,
                   created_at TEXT,
-                  status TEXT
+                  status TEXT,
+                  author TEXT
                 )
               `, (err) => {
                 if (err) console.error("Error creating Sessions table:", err);
@@ -102,7 +113,86 @@ async function initializeDb() {
                 resolve();
               });
             } else {
-              resolve();
+              // Check if author column exists in Sessions table
+              db.all("PRAGMA table_info(Sessions)", (err, sessionsInfo) => {
+                if (err) {
+                  resolve();
+                  return;
+                }
+                
+                const hasAuthor = sessionsInfo.some(column => column.name === 'author');
+                const hasAuthorDisplay = sessionsInfo.some(column => column.name === 'author_display');
+                const hasAuthorIsGuest = sessionsInfo.some(column => column.name === 'author_is_guest');
+                const hasAuthorIsHost = sessionsInfo.some(column => column.name === 'author_is_host');
+                
+                const migrations = [];
+                
+                if (!hasAuthor) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author TEXT", (err) => {
+                      if (err) {
+                        console.error("Error adding author column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorDisplay) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_display column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_display TEXT", (err) => {
+                      if (err) {
+                        console.error("Error adding author_display column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_display column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorIsGuest) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_is_guest column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_is_guest INTEGER DEFAULT 0", (err) => {
+                      if (err) {
+                        console.error("Error adding author_is_guest column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_is_guest column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (!hasAuthorIsHost) {
+                  migrations.push(new Promise((res, rej) => {
+                    console.log("Adding author_is_host column to Sessions table...");
+                    db.run("ALTER TABLE Sessions ADD COLUMN author_is_host INTEGER DEFAULT 0", (err) => {
+                      if (err) {
+                        console.error("Error adding author_is_host column:", err);
+                        rej(err);
+                      } else {
+                        console.log("author_is_host column added successfully.");
+                        res();
+                      }
+                    });
+                  }));
+                }
+                
+                if (migrations.length > 0) {
+                  Promise.all(migrations).then(() => resolve()).catch(() => resolve());
+                } else {
+                  resolve();
+                }
+              });
             }
           });
         });
@@ -110,6 +200,26 @@ async function initializeDb() {
     });
   });
 }
+
+// Create useful indexes if not present
+function createIndexes() {
+  try {
+    db.run("CREATE INDEX IF NOT EXISTS idx_messages_username ON Messages(username)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_messages_session_id ON Messages(session_id)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_sessions_author ON Sessions(author)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_sessions_status ON Sessions(status)");
+    console.log('Database indexes ensured');
+  } catch (err) {
+    console.error('Error creating indexes:', err);
+  }
+}
+
+// Ensure indexes after DB init
+setTimeout(() => {
+  try {
+    if (db) createIndexes();
+  } catch (e) { /* ignore */ }
+}, 1000);
 
 // Initialize database on module load
 initializeDb().catch((err) => {
@@ -138,6 +248,7 @@ async function saveSession(sessionData) {
         
         let title = sessionData.title;
         let status = sessionData.status;
+        let author = sessionData.author;
         let created_at = sessionData.created_at || new Date().toISOString();
         
         if (existingSession) {
@@ -150,11 +261,15 @@ async function saveSession(sessionData) {
             status = existingSession.status;
           }
           
-          console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}`);
+          if (author === null || author === undefined) {
+            author = existingSession.author;
+          }
+          
+          console.log(`Updating session ${session_id} - Title: ${title}, Status: ${status}, Author: ${author}`);
           
           db.run(
-            "UPDATE Sessions SET title = ?, status = ? WHERE session_id = ?",
-            [title, status, session_id],
+            "UPDATE Sessions SET title = ?, status = ?, author = ? WHERE session_id = ?",
+            [title, status, author, session_id],
             function(err) {
               if (err) {
                 reject(err);
@@ -166,7 +281,8 @@ async function saveSession(sessionData) {
                 session_id,
                 title,
                 created_at: existingSession.created_at,
-                status
+                status,
+                author
               });
             }
           );
@@ -176,11 +292,11 @@ async function saveSession(sessionData) {
             status = 'active';
           }
           
-          console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}`);
+          console.log(`Creating new session ${session_id} - Title: ${title}, Status: ${status}, Author: ${author}`);
           
           db.run(
-            "INSERT INTO Sessions (session_id, title, created_at, status) VALUES (?, ?, ?, ?)",
-            [session_id, title, created_at, status],
+            "INSERT INTO Sessions (session_id, title, created_at, status, author) VALUES (?, ?, ?, ?, ?)",
+            [session_id, title, created_at, status, author],
             function(err) {
               if (err) {
                 reject(err);
@@ -188,7 +304,7 @@ async function saveSession(sessionData) {
               }
               
               console.log(`Insert result: ${this.lastID}`);
-              resolve({ session_id, title, created_at, status });
+              resolve({ session_id, title, created_at, status, author });
             }
           );
         }
@@ -440,7 +556,11 @@ async function getSessionDetails(sessionId) {
       end_date: lastMsg ? lastMsg.date : null,
       participants: participants.map(p => p.username),
       message_count: countResult ? countResult.count : 0,
-      status: status
+      status: status,
+      author: sessionRecord ? sessionRecord.author : null,
+      author_display: sessionRecord ? sessionRecord.author_display : null,
+      author_is_guest: sessionRecord ? sessionRecord.author_is_guest : 0,
+      author_is_host: sessionRecord ? sessionRecord.author_is_host : 0
     };
     
     console.log(`Assembled session details for ${sessionId}:`, JSON.stringify(sessionDetails));
@@ -500,6 +620,203 @@ async function checkAndFixSessionStatuses() {
   });
 }
 
+// Force-update a session's status (bypasses normal state machine)
+async function forceUpdateSessionStatus(sessionId, status) {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error('Database not initialized'));
+    db.run(
+      'UPDATE Sessions SET status = ? WHERE session_id = ?',
+      [status, sessionId],
+      function(err) {
+        if (err) {
+          console.error(`Error force-updating status for session ${sessionId}:`, err);
+          return reject(err);
+        }
+        resolve(this.changes > 0);
+      }
+    );
+  });
+}
+
+// Get last message date for a session (used by fix-all-sessions)
+async function getLastMessageDate(sessionId) {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error('Database not initialized'));
+    db.get(
+      'SELECT date FROM Messages WHERE session_id = ? ORDER BY date DESC LIMIT 1',
+      [sessionId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      }
+    );
+  });
+}
+
+// Delete a single session and all its messages
+async function deleteSession(sessionId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      return reject(new Error('Database not initialized'));
+    }
+
+    db.serialize(() => {
+      const result = { messagesDeleted: 0, sessionsDeleted: 0 };
+
+      db.run(
+        'DELETE FROM Messages WHERE session_id = ?',
+        [sessionId],
+        function (err) {
+          if (err) {
+            console.error(`Error deleting messages for session ${sessionId}:`, err);
+            reject(err);
+            return;
+          }
+          result.messagesDeleted = this.changes || 0;
+
+          db.run(
+            'DELETE FROM Sessions WHERE session_id = ?',
+            [sessionId],
+            function (err2) {
+              if (err2) {
+                console.error(`Error deleting session ${sessionId}:`, err2);
+                reject(err2);
+                return;
+              }
+              result.sessionsDeleted = this.changes || 0;
+              console.log(
+                `Deleted session ${sessionId}: ${result.messagesDeleted} messages, ${result.sessionsDeleted} session rows`
+              );
+              resolve(result);
+            }
+          );
+        }
+      );
+    });
+  });
+}
+
+// Update author metadata from Notion sync
+async function updateSessionAuthorMetadata(sessionId, metadata) {
+  return new Promise((resolve, reject) => {
+    const { displayName, isGuest, isHost } = metadata;
+    
+    db.run(
+      `UPDATE Sessions 
+       SET author_display = ?, author_is_guest = ?, author_is_host = ? 
+       WHERE session_id = ?`,
+      [displayName || null, isGuest ? 1 : 0, isHost ? 1 : 0, sessionId],
+      function(err) {
+        if (err) {
+          console.error(`Error updating author metadata for session ${sessionId}:`, err);
+          reject(err);
+          return;
+        }
+        resolve({ updated: this.changes });
+      }
+    );
+  });
+}
+
+// Bulk update all sessions with Notion metadata
+async function syncAllSessionsWithNotion(userMetadataMap) {
+  return new Promise((resolve, reject) => {
+    db.all("SELECT session_id, author FROM Sessions", [], async (err, sessions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      let updated = 0;
+      let skipped = 0;
+      
+      for (const session of sessions) {
+        if (!session.author) {
+          skipped++;
+          continue;
+        }
+        
+        const metadata = userMetadataMap.get(session.author.toLowerCase());
+        if (metadata) {
+          try {
+            await updateSessionAuthorMetadata(session.session_id, {
+              displayName: metadata.override || metadata.originalName,
+              isGuest: metadata.isGuest,
+              isHost: metadata.isHost
+            });
+            updated++;
+          } catch (err) {
+            console.error(`Failed to update session ${session.session_id}:`, err);
+          }
+        } else {
+          skipped++;
+        }
+      }
+      
+      console.log(`Notion sync complete: ${updated} sessions updated, ${skipped} skipped`);
+      resolve({ updated, skipped, total: sessions.length });
+    });
+  });
+}
+
+// Reset database - clear all messages and sessions
+function resetDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      return reject(new Error('Database not initialized'));
+    }
+
+    db.serialize(() => {
+      const errors = [];
+      const cleared = { messages: 0, sessions: 0 };
+
+      // Clear all messages
+      db.run("DELETE FROM Messages", function(err) {
+        if (err) {
+          errors.push(`Messages: ${err.message}`);
+        } else {
+          cleared.messages = this.changes;
+          console.log(`✓ Cleared ${cleared.messages} messages`);
+        }
+      });
+
+      // Clear all sessions
+      db.run("DELETE FROM Sessions", function(err) {
+        if (err) {
+          errors.push(`Sessions: ${err.message}`);
+        } else {
+          cleared.sessions = this.changes;
+          console.log(`✓ Cleared ${cleared.sessions} sessions`);
+        }
+      });
+
+      // Reset auto-increment counters
+      db.run("DELETE FROM sqlite_sequence WHERE name='Messages'", (err) => {
+        if (err && !err.message.includes('no such table')) {
+          errors.push(`Messages counter: ${err.message}`);
+        } else {
+          console.log('✓ Messages counter reset');
+        }
+      });
+
+      db.run("DELETE FROM sqlite_sequence WHERE name='Sessions'", (err) => {
+        if (err && !err.message.includes('no such table')) {
+          errors.push(`Sessions counter: ${err.message}`);
+        } else {
+          console.log('✓ Sessions counter reset');
+        }
+
+        // This is the last operation, resolve here
+        if (errors.length > 0) {
+          reject({ errors, cleared, partial: true });
+        } else {
+          resolve(cleared);
+        }
+      });
+    });
+  });
+}
+
 module.exports = {
   saveMessage,
   getMessages,
@@ -511,5 +828,11 @@ module.exports = {
   saveSession,
   getSession,
   getAllSessions,
-  checkAndFixSessionStatuses
+  checkAndFixSessionStatuses,
+  deleteSession,
+  updateSessionAuthorMetadata,
+  syncAllSessionsWithNotion,
+  resetDatabase,
+  forceUpdateSessionStatus,
+  getLastMessageDate
 };

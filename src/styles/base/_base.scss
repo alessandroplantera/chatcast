@@ -8,5 +8,8 @@ html {
 
 body {
   min-height: 100%;
-  background-color: color(bg-primary);
+  background-color: var(--bg-black);
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
 }

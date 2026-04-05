@@ -1,0 +1,140 @@
+///OLD
+Main
+	Header
+		Next-Chat-Date (mm.dd.yyyy — hh:mm)
+		Speakers
+			Guest
+			Host
+		Next-Chat-Object
+	Chatlist
+		ChatItem
+			Content
+				Host
+				Guest
+				Chat-Item-Object
+			Info
+				Status
+				Chat-Item-Start-Date (mm.dd.yyyy — hh:mm:ss)
+				Sent-Messages
+			
+	Chat
+		ChatItem (header)
+		Message-Host
+			UserName
+			Message-Content
+			Message-Time(hh:mm:ss)
+		Message-Guest
+			UserName
+			Message-Content
+			Message-Time(hh:mm:ss)
+	
+	Sidebar
+		About
+			Navigation
+			Card
+			Bio
+		Guest
+			Navigation
+			Card
+			Bio
+
+///NEW
+
+Layout (single page, three dynamic columns)
+ - Left column (non-collapsible): Chat List
+ - Center column (main): Active Chat
+ - Right column (collapsible): Sidebar (About / Guest Info)
+
+High level sections
+
+ - Left: ChatListSection
+ 	- UpcomingChatHeader (preview for next scheduled chat)
+ 		- Next-Chat-Date (mm.dd.yyyy — hh:mm)
+ 		- SpeakersPreview (Guest / Host badges)
+ 		- TopicPreview
+ 	- ChatListContainer
+ 		- ChatListItem (summary)
+ 			- Participants
+ 			- Topic
+ 			- StatusPill
+ 			- StartDate
+ 			- MessagesCount
+
+ - Center: ChatSection
+ 	- ActiveChatHeader (full header for opened thread — same core as ChatListItem but with controls)
+ 		- Participants
+ 		- Topic
+ 		- StatusPill
+ 		- Close control (X) — shown only in active header
+ 	- MessageThread (list of Message)
+
+ - Right: SidebarSection
+ 	- AboutCard
+ 	- GuestCard
+
+Notes: implement a shared partial for the header/core (eg. `components/chat/item-core.hbs`) and reuse it in both the Left preview and the ActiveChatHeader, toggling the Close control via a `showClose` flag. 
+This avoids duplicate templates while keeping different semantics (list preview vs active thread header).
+
+Components (minimal)
+
+ - Atoms (small, reusable primitives)
+	 - `user-badge` — name + role modifier (host/guest/system)
+	 - `status-pill` — visual status token (live / archived / paused / completed)
+	 - `timestamp` — `<time datetime>` wrapper
+	 - `date-separator` — day divider for threads
+	 - `icon-button` — accessible icon-only button
+	 - `counter-badge` — small numeric badge (messages count)
+	 - `topic-title` — short topic display (truncation handled)
+
+ - Molecules (compose atoms)
+	 - `item-core` — shared core used by list preview and active header (topic + participants + status)
+	 - `chat-list-item` — summary row in left list (uses `item-core` + meta: startDate, messagesCount)
+	 - `message` — single message block (modifiers: `--host`, `--guest`, `--system`, supports grouped messages)
+	 - `participants-list` — horizontally stacked `user-badge`s
+
+ - Organisms (page-level composed components)
+	 - `upcoming-chat` — left-column header showing next chat (uses `item-core` with minimal meta)
+	 - `chat-header` — active chat header (uses `item-core`, `showClose` flag)
+	 - `chat-list` — container that iterates `chat-list-item`s
+	 - `message-thread` — scrollable list of `message` molecules (supports date separators and grouping)
+	 - `sidebar` — about/guest/cards and controls
+
+Notes:
+ - Implement `item-core` as the single reusable partial for topic/participants/status; include it in both `chat-list-item` and `chat-header` and toggle the close control via a `showClose` parameter.
+ - Keep atoms in `components/atoms/`, molecules in `components/molecules/`, organisms in `components/organisms/` to match Handlebars registration and SCSS files.
+
+Data shape (server → templates)
+ - chat: { id, topic, status, start_at, messages_count, participants[] }
+ - participant: { id, name, role }
+ - message: { id, chat_id, author:{id,name,role}, content, sent_at }
+
+SCSS organization (simple)
+ - src/styles/abstracts/_variables.scss
+ - src/styles/base/_reset.scss
+ - src/styles/components/_atoms.scss
+ - src/styles/components/_chat.scss
+ - src/styles/sections/_left.scss
+ - src/styles/sections/_center.scss
+ - src/styles/sections/_right.scss
+ - src/styles/main.scss (import order: abstracts → base → components → sections)
+
+Handlebars organization
+- Directory layout under `src/views/`:
+	- layouts/main-wrapper.hbs
+	- sections/left.hbs
+	- sections/center.hbs
+	- sections/right.hbs
+	- components/atoms/*.hbs
+	- components/molecules/*.hbs
+	- components/organisms/*.hbs
+- Partial keys: use path-like keys (e.g. `components/atoms/user-badge`)
+- Keep partials focused and accept named params (e.g. `{{> components/molecules/chat-list-item chat=this}}`)
+- Helpers: put helpers in `src/views/helpers/` and register them from server (formatDate, statusClass, roleClass)
+
+Notes / conventions
+ - Use BEM: .message, .message--host, .chat-list-item__meta
+ - Reuse single `message` component with modifiers rather than separate host/guest files
+ - Sections are lazy-renderable; partials should map to `sections/left.hbs`, `sections/center.hbs`, `sections/right.hbs`
+ - Keep helpers for date formatting and status classes in server (`formatDate`, `statusClass`, `roleClass`)
+
+This is intentionally minimal so components remain focused and reusable within the 3-column layout.
